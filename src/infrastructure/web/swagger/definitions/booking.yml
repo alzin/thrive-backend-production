@@ -1,0 +1,124 @@
+# src/infrastructure/web/swagger/definitions/booking.yml
+tags:
+  - name: Bookings
+    description: Session booking management endpoints
+
+paths:
+  /bookings:
+    post:
+      tags:
+        - Bookings
+      summary: Create a booking
+      description: Books a session for the authenticated user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - sessionId
+              properties:
+                sessionId:
+                  type: string
+                  description: The ID of the session to book
+                  example: 1234567890-abcdef
+      responses:
+        201:
+          description: Booking created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Booking"
+        400:
+          description: Validation error or booking constraints violated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    examples:
+                      - Maximum active bookings reached
+                      - Insufficient points
+                      - Session cannot be booked
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        404:
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: Session not found
+
+  /bookings/my-bookings:
+    get:
+      tags:
+        - Bookings
+      summary: Get user's bookings
+      description: Retrieves all bookings for the authenticated user
+      responses:
+        200:
+          description: Bookings retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Booking"
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /bookings/{bookingId}:
+    delete:
+      tags:
+        - Bookings
+      summary: Cancel a booking
+      description: Cancels a booking for the authenticated user
+      parameters:
+        - in: path
+          name: bookingId
+          required: true
+          schema:
+            type: string
+          description: The booking ID to cancel
+      responses:
+        200:
+          description: Booking cancelled successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Booking cancelled successfully
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        404:
+          description: Booking not found or does not belong to user
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: Booking not found

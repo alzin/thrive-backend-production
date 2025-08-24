@@ -1,0 +1,157 @@
+# src/infrastructure/web/swagger/definitions/profile.yml
+tags:
+  - name: Profile
+    description: User profile management endpoints
+
+paths:
+  /profile/me:
+    get:
+      tags:
+        - Profile
+      summary: Get current user's profile
+      description: Retrieves the profile of the authenticated user
+      responses:
+        200:
+          description: Profile retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Profile"
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        404:
+          description: Profile not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: Profile not found
+
+    put:
+      tags:
+        - Profile
+      summary: Update current user's profile
+      description: Updates the profile information of the authenticated user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                  example: John Doe
+                bio:
+                  type: string
+                  maxLength: 500
+                  example: Japanese language enthusiast and culture lover
+                languageLevel:
+                  type: string
+                  enum: [N5, N4, N3, N2, N1]
+                  example: N3
+      responses:
+        200:
+          description: Profile updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Profile"
+        400:
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        404:
+          description: Profile not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: Profile not found
+
+  /profile/me/photo:
+    post:
+      tags:
+        - Profile
+      summary: Upload profile photo
+      description: Uploads a new profile photo for the authenticated user
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - photo
+              properties:
+                photo:
+                  type: string
+                  format: binary
+                  description: Image file (max 5MB)
+      responses:
+        200:
+          description: Photo uploaded successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  profilePhoto:
+                    type: string
+                    example: /uploads/profile-123456.jpg
+        400:
+          description: No file uploaded or invalid file type
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: No file uploaded
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        404:
+          description: Profile not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: Profile not found
+        413:
+          description: File too large
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: File size exceeds 5MB limit

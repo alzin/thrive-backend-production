@@ -1,0 +1,101 @@
+# src/infrastructure/web/swagger/definitions/payment.yml
+tags:
+  - name: Payment
+    description: Payment processing endpoints
+
+paths:
+  /payment/create-payment-intent:
+    post:
+      tags:
+        - Payment
+      summary: Create payment intent
+      description: Creates a Stripe payment intent for processing payment
+      security: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                amount:
+                  type: integer
+                  minimum: 1
+                  default: 5000
+                  description: Amount in smallest currency unit (e.g., cents for USD, yen for JPY)
+                  example: 5000
+                currency:
+                  type: string
+                  default: jpy
+                  description: Three-letter ISO currency code
+                  example: jpy
+      responses:
+        200:
+          description: Payment intent created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  clientSecret:
+                    type: string
+                    description: Client secret for confirming payment on frontend
+                    example: pi_1234567890_secret_abcdef
+                  amount:
+                    type: integer
+                    description: Payment amount
+                    example: 5000
+                  currency:
+                    type: string
+                    description: Payment currency
+                    example: jpy
+        400:
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        500:
+          description: Payment processing error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /payment/webhook:
+    post:
+      tags:
+        - Payment
+      summary: Stripe webhook endpoint
+      description: Handles Stripe webhook events (internal use only)
+      security: []
+      parameters:
+        - in: header
+          name: stripe-signature
+          required: true
+          schema:
+            type: string
+          description: Stripe webhook signature
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: Stripe webhook event payload
+      responses:
+        200:
+          description: Webhook processed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  received:
+                    type: boolean
+                    example: true
+        400:
+          description: Invalid webhook signature or payload
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"

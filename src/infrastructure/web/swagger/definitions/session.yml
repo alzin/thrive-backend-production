@@ -1,0 +1,200 @@
+# src/infrastructure/web/swagger/definitions/session.yml
+tags:
+  - name: Sessions
+    description: Session management endpoints
+
+paths:
+  /sessions:
+    get:
+      tags:
+        - Sessions
+      summary: Get all sessions
+      description: Retrieves all sessions with pagination and filtering
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          description: Page number
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          description: Number of items per page
+        - in: query
+          name: type
+          schema:
+            type: string
+            enum: [SPEAKING, EVENT]
+          description: Filter by session type
+        - in: query
+          name: isActive
+          schema:
+            type: boolean
+          description: Filter by active status
+      responses:
+        200:
+          description: Sessions retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/PaginationResponse"
+                  - type: object
+                    properties:
+                      sessions:
+                        type: array
+                        items:
+                          allOf:
+                            - $ref: "#/components/schemas/Session"
+                            - type: object
+                              properties:
+                                hostName:
+                                  type: string
+                                hostEmail:
+                                  type: string
+                                  format: email
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /sessions/upcoming:
+    get:
+      tags:
+        - Sessions
+      summary: Get upcoming sessions
+      description: Retrieves upcoming sessions ordered by date
+      parameters:
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 10
+          description: Maximum number of sessions to return
+      responses:
+        200:
+          description: Sessions retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  allOf:
+                    - $ref: "#/components/schemas/Session"
+                    - type: object
+                      properties:
+                        hostName:
+                          type: string
+                        hostEmail:
+                          type: string
+                          format: email
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /sessions/{sessionId}:
+    get:
+      tags:
+        - Sessions
+      summary: Get session by ID
+      description: Retrieves a specific session by its ID
+      parameters:
+        - in: path
+          name: sessionId
+          required: true
+          schema:
+            type: string
+          description: The session ID
+      responses:
+        200:
+          description: Session retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Session"
+                  - type: object
+                    properties:
+                      hostName:
+                        type: string
+                      hostEmail:
+                        type: string
+                        format: email
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        404:
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: Session not found
+
+  /sessions/range:
+    get:
+      tags:
+        - Sessions
+      summary: Get sessions by date range
+      description: Retrieves sessions within a specified date range
+      parameters:
+        - in: query
+          name: startDate
+          required: true
+          schema:
+            type: string
+            format: date
+          description: Start date (YYYY-MM-DD)
+          example: 2024-01-01
+        - in: query
+          name: endDate
+          required: true
+          schema:
+            type: string
+            format: date
+          description: End date (YYYY-MM-DD)
+          example: 2024-01-31
+      responses:
+        200:
+          description: Sessions retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Session"
+        400:
+          description: Missing or invalid date parameters
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: Start date and end date are required
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"

@@ -1,0 +1,254 @@
+# src/infrastructure/web/swagger/definitions/calendar.yml
+tags:
+  - name: Calendar
+    description: Calendar and scheduling endpoints
+
+paths:
+  /calendar/sessions:
+    get:
+      tags:
+        - Calendar
+      summary: Get calendar sessions
+      description: Retrieves sessions for calendar view (month or week)
+      parameters:
+        - in: query
+          name: year
+          schema:
+            type: integer
+            example: 2024
+          description: Year for month view
+        - in: query
+          name: month
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 12
+            example: 1
+          description: Month for month view (1-12)
+        - in: query
+          name: view
+          schema:
+            type: string
+            enum: [month, week]
+            default: month
+          description: Calendar view type
+        - in: query
+          name: week
+          schema:
+            type: string
+            format: date
+          description: Start date for week view
+      responses:
+        200:
+          description: Calendar sessions retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sessions:
+                    type: array
+                    items:
+                      allOf:
+                        - $ref: "#/components/schemas/Session"
+                        - type: object
+                          properties:
+                            isBooked:
+                              type: boolean
+                              description: Whether the user has booked this session
+                            canBook:
+                              type: boolean
+                              description: Whether the user can book this session
+                  dateRange:
+                    type: object
+                    properties:
+                      start:
+                        type: string
+                        format: date-time
+                      end:
+                        type: string
+                        format: date-time
+                  userBookingCount:
+                    type: integer
+                    description: Number of active bookings the user has
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /calendar/sessions/day/{date}:
+    get:
+      tags:
+        - Calendar
+      summary: Get sessions for a specific day
+      description: Retrieves all sessions scheduled for a specific day
+      parameters:
+        - in: path
+          name: date
+          required: true
+          schema:
+            type: string
+            format: date
+          description: The date (YYYY-MM-DD)
+          example: 2024-01-15
+      responses:
+        200:
+          description: Sessions retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  allOf:
+                    - $ref: "#/components/schemas/Session"
+                    - type: object
+                      properties:
+                        isBooked:
+                          type: boolean
+                        participantsList:
+                          type: array
+                          items:
+                            type: object
+                            description: Participant information
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /calendar/sessions/{sessionId}/eligibility:
+    get:
+      tags:
+        - Calendar
+      summary: Check booking eligibility
+      description: Checks if the user can book a specific session
+      parameters:
+        - in: path
+          name: sessionId
+          required: true
+          schema:
+            type: string
+          description: The session ID
+      responses:
+        200:
+          description: Eligibility check completed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  canBook:
+                    type: boolean
+                    description: Whether the user can book this session
+                  reasons:
+                    type: array
+                    items:
+                      type: string
+                    description: Reasons why booking is not allowed (if applicable)
+                  session:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      title:
+                        type: string
+                      pointsRequired:
+                        type: integer
+                      spotsAvailable:
+                        type: integer
+                  user:
+                    type: object
+                    properties:
+                      points:
+                        type: integer
+                      activeBookings:
+                        type: integer
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        404:
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: Session not found
+
+  /calendar/bookings/upcoming:
+    get:
+      tags:
+        - Calendar
+      summary: Get upcoming bookings
+      description: Retrieves the user's upcoming session bookings
+      responses:
+        200:
+          description: Bookings retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  allOf:
+                    - $ref: "#/components/schemas/Booking"
+                    - type: object
+                      properties:
+                        session:
+                          $ref: "#/components/schemas/Session"
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /calendar/sessions/{sessionId}/attendees:
+    get:
+      tags:
+        - Calendar
+      summary: Get session attendees
+      description: Retrieves the list of attendees for a session
+      parameters:
+        - in: path
+          name: sessionId
+          required: true
+          schema:
+            type: string
+          description: The session ID
+      responses:
+        200:
+          description: Attendees retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    bookingId:
+                      type: string
+                    userId:
+                      type: string
+                    name:
+                      type: string
+                    profilePhoto:
+                      type: string
+                      nullable: true
+                    level:
+                      type: integer
+                    languageLevel:
+                      type: string
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"

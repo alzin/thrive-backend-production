@@ -1,0 +1,167 @@
+# src/infrastructure/web/swagger/definitions/course.yml
+tags:
+  - name: Courses
+    description: Course and lesson management endpoints
+
+paths:
+  /courses:
+    get:
+      tags:
+        - Courses
+      summary: Get all courses
+      description: Retrieves all active courses
+      responses:
+        200:
+          description: Courses retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Course"
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /courses/{courseId}:
+    get:
+      tags:
+        - Courses
+      summary: Get course by ID
+      description: Retrieves a specific course by its ID
+      parameters:
+        - in: path
+          name: courseId
+          required: true
+          schema:
+            type: string
+          description: The course ID
+      responses:
+        200:
+          description: Course retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Course"
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        404:
+          description: Course not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: Course not found
+
+  /courses/{courseId}/lessons:
+    get:
+      tags:
+        - Courses
+      summary: Get course lessons
+      description: Retrieves all lessons for a specific course with user progress
+      parameters:
+        - in: path
+          name: courseId
+          required: true
+          schema:
+            type: string
+          description: The course ID
+      responses:
+        200:
+          description: Lessons retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  allOf:
+                    - $ref: "#/components/schemas/Lesson"
+                    - type: object
+                      properties:
+                        isCompleted:
+                          type: boolean
+                          description: Whether the user has completed this lesson
+                        completedAt:
+                          type: string
+                          format: date-time
+                          nullable: true
+                          description: When the lesson was completed
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /courses/lessons/{lessonId}/complete:
+    post:
+      tags:
+        - Courses
+      summary: Complete a lesson
+      description: Marks a lesson as completed and awards points
+      parameters:
+        - in: path
+          name: lessonId
+          required: true
+          schema:
+            type: string
+          description: The lesson ID
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reflectionContent:
+                  type: string
+                  description: Reflection content if required by the lesson
+                  example: Today I learned about Japanese cultural etiquette...
+      responses:
+        200:
+          description: Lesson completed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Lesson completed successfully
+                  progress:
+                    $ref: "#/components/schemas/Progress"
+        400:
+          description: Validation error or lesson requirements not met
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: Reflection is required for this lesson
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        404:
+          description: Lesson not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: Lesson not found

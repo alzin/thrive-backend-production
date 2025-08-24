@@ -1,0 +1,134 @@
+# src/infrastructure/web/swagger/definitions/user.yml
+tags:
+  - name: Users
+    description: User management endpoints
+
+paths:
+  /users/profile/{userId}:
+    get:
+      tags:
+        - Users
+      summary: Get user profile
+      description: Retrieves a user's profile by their ID
+      parameters:
+        - in: path
+          name: userId
+          required: true
+          schema:
+            type: string
+          description: The user ID
+      responses:
+        200:
+          description: User profile retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Profile"
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        404:
+          description: User not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: User not found
+
+  /users/search:
+    get:
+      tags:
+        - Users
+      summary: Search users
+      description: Search for users by name
+      parameters:
+        - in: query
+          name: q
+          required: true
+          schema:
+            type: string
+          description: Search query
+          example: John
+      responses:
+        200:
+          description: Search results
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Profile"
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /users/block/{userId}:
+    post:
+      tags:
+        - Users
+      summary: Block a user
+      description: Blocks a user from interacting with the current user
+      parameters:
+        - in: path
+          name: userId
+          required: true
+          schema:
+            type: string
+          description: The user ID to block
+      responses:
+        200:
+          description: User blocked successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: User blocked successfully
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /users/unblock/{userId}:
+    post:
+      tags:
+        - Users
+      summary: Unblock a user
+      description: Unblocks a previously blocked user
+      parameters:
+        - in: path
+          name: userId
+          required: true
+          schema:
+            type: string
+          description: The user ID to unblock
+      responses:
+        200:
+          description: User unblocked successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: User unblocked successfully
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"

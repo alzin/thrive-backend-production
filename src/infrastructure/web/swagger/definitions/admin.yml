@@ -1,0 +1,1013 @@
+# src/infrastructure/web/swagger/definitions/admin.yml
+tags:
+  - name: Admin
+    description: Administrative endpoints (requires ADMIN role)
+
+paths:
+  /admin/users:
+    get:
+      tags:
+        - Admin
+      summary: Get all users
+      description: Retrieves all users with their profiles (Admin only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          description: Page number
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          description: Number of users per page
+      responses:
+        200:
+          description: Users retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/PaginationResponse"
+                  - type: object
+                    properties:
+                      users:
+                        type: array
+                        items:
+                          allOf:
+                            - $ref: "#/components/schemas/User"
+                            - type: object
+                              properties:
+                                profile:
+                                  $ref: "#/components/schemas/Profile"
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        403:
+          description: Forbidden - Admin access required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /admin/users/{userId}/status:
+    put:
+      tags:
+        - Admin
+      summary: Update user status
+      description: Activates or deactivates a user account (Admin only)
+      parameters:
+        - in: path
+          name: userId
+          required: true
+          schema:
+            type: string
+          description: The user ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - isActive
+              properties:
+                isActive:
+                  type: boolean
+                  description: Whether the user account should be active
+      responses:
+        200:
+          description: User status updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: User status updated
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        403:
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        404:
+          description: User not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: User not found
+
+  /admin/users/{userId}/points:
+    post:
+      tags:
+        - Admin
+      summary: Adjust user points
+      description: Adds or removes points from a user's account (Admin only)
+      parameters:
+        - in: path
+          name: userId
+          required: true
+          schema:
+            type: string
+          description: The user ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - points
+                - reason
+              properties:
+                points:
+                  type: integer
+                  description: Points to add (positive) or remove (negative)
+                  example: 100
+                reason:
+                  type: string
+                  description: Reason for point adjustment
+                  example: Bonus points for community contribution
+      responses:
+        200:
+          description: Points adjusted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Points adjusted successfully
+        400:
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        403:
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /admin/posts/flagged:
+    get:
+      tags:
+        - Admin
+      summary: Get flagged posts
+      description: Retrieves all flagged posts for moderation (Admin only)
+      responses:
+        200:
+          description: Flagged posts retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Post"
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        403:
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /admin/posts/{postId}:
+    delete:
+      tags:
+        - Admin
+      summary: Delete post
+      description: Deletes a community post (Admin only)
+      parameters:
+        - in: path
+          name: postId
+          required: true
+          schema:
+            type: string
+          description: The post ID to delete
+      responses:
+        200:
+          description: Post deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Post deleted successfully
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        403:
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        404:
+          description: Post not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: Post not found
+
+  /admin/posts/{postId}/unflag:
+    post:
+      tags:
+        - Admin
+      summary: Unflag post
+      description: Removes flag from a post (Admin only)
+      parameters:
+        - in: path
+          name: postId
+          required: true
+          schema:
+            type: string
+          description: The post ID to unflag
+      responses:
+        200:
+          description: Post unflagged successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Post unflagged successfully
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        403:
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /admin/courses:
+    post:
+      tags:
+        - Admin
+      summary: Create course
+      description: Creates a new course (Admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - title
+                - description
+                - type
+                - icon
+              properties:
+                title:
+                  type: string
+                  example: Advanced Japanese Culture
+                description:
+                  type: string
+                  example: Deep dive into Japanese cultural nuances
+                type:
+                  type: string
+                  enum: [JAPAN_IN_CONTEXT, JLPT_IN_CONTEXT]
+                icon:
+                  type: string
+                  example: culture-icon.svg
+      responses:
+        201:
+          description: Course created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Course"
+        400:
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        403:
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /admin/courses/{courseId}:
+    put:
+      tags:
+        - Admin
+      summary: Update course
+      description: Updates an existing course (Admin only)
+      parameters:
+        - in: path
+          name: courseId
+          required: true
+          schema:
+            type: string
+          description: The course ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                description:
+                  type: string
+                type:
+                  type: string
+                  enum: [JAPAN_IN_CONTEXT, JLPT_IN_CONTEXT]
+                icon:
+                  type: string
+                isActive:
+                  type: boolean
+      responses:
+        200:
+          description: Course updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Course"
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        403:
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        404:
+          description: Course not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: Course not found
+
+    delete:
+      tags:
+        - Admin
+      summary: Delete course
+      description: Deletes a course (Admin only)
+      parameters:
+        - in: path
+          name: courseId
+          required: true
+          schema:
+            type: string
+          description: The course ID
+      responses:
+        200:
+          description: Course deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Course deleted successfully
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        403:
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        404:
+          description: Course not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: Course not found
+
+  /admin/courses/{courseId}/lessons:
+    post:
+      tags:
+        - Admin
+      summary: Create lesson
+      description: Creates a new lesson in a course (Admin only)
+      parameters:
+        - in: path
+          name: courseId
+          required: true
+          schema:
+            type: string
+          description: The course ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - title
+                - description
+                - order
+              properties:
+                title:
+                  type: string
+                  example: Introduction to Keigo
+                description:
+                  type: string
+                  example: Learn about formal Japanese language
+                order:
+                  type: integer
+                  minimum: 1
+                  example: 1
+                videoUrl:
+                  type: string
+                  format: uri
+                audioFiles:
+                  type: array
+                  items:
+                    type: string
+                    format: uri
+                resources:
+                  type: array
+                  items:
+                    type: string
+                    format: uri
+                requiresReflection:
+                  type: boolean
+                  default: false
+                pointsReward:
+                  type: integer
+                  minimum: 0
+                  default: 0
+      responses:
+        201:
+          description: Lesson created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Lesson"
+        400:
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        403:
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /admin/lessons/{lessonId}:
+    put:
+      tags:
+        - Admin
+      summary: Update lesson
+      description: Updates an existing lesson (Admin only)
+      parameters:
+        - in: path
+          name: lessonId
+          required: true
+          schema:
+            type: string
+          description: The lesson ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                description:
+                  type: string
+                order:
+                  type: integer
+                  minimum: 1
+                videoUrl:
+                  type: string
+                  format: uri
+                audioFiles:
+                  type: array
+                  items:
+                    type: string
+                    format: uri
+                resources:
+                  type: array
+                  items:
+                    type: string
+                    format: uri
+                requiresReflection:
+                  type: boolean
+                pointsReward:
+                  type: integer
+                  minimum: 0
+      responses:
+        200:
+          description: Lesson updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Lesson"
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        403:
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        404:
+          description: Lesson not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: Lesson not found
+
+    delete:
+      tags:
+        - Admin
+      summary: Delete lesson
+      description: Deletes a lesson (Admin only)
+      parameters:
+        - in: path
+          name: lessonId
+          required: true
+          schema:
+            type: string
+          description: The lesson ID
+      responses:
+        200:
+          description: Lesson deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Lesson deleted successfully
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        403:
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        404:
+          description: Lesson not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: Lesson not found
+
+  /admin/sessions:
+    post:
+      tags:
+        - Admin
+      summary: Create session
+      description: Creates a new speaking session or event (Admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - title
+                - description
+                - type
+                - scheduledAt
+                - duration
+                - maxParticipants
+              properties:
+                title:
+                  type: string
+                  example: Weekly Japanese Conversation Practice
+                description:
+                  type: string
+                  example: Practice casual Japanese conversation
+                type:
+                  type: string
+                  enum: [SPEAKING, EVENT]
+                hostId:
+                  type: string
+                  description: Host user ID (defaults to current user)
+                meetingUrl:
+                  type: string
+                  format: uri
+                scheduledAt:
+                  type: string
+                  format: date-time
+                duration:
+                  type: integer
+                  minimum: 15
+                  description: Duration in minutes
+                maxParticipants:
+                  type: integer
+                  minimum: 1
+                pointsRequired:
+                  type: integer
+                  minimum: 0
+                  default: 0
+      responses:
+        201:
+          description: Session created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+        400:
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        403:
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /admin/sessions/{sessionId}:
+    put:
+      tags:
+        - Admin
+      summary: Update session
+      description: Updates an existing session (Admin only)
+      parameters:
+        - in: path
+          name: sessionId
+          required: true
+          schema:
+            type: string
+          description: The session ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                description:
+                  type: string
+                type:
+                  type: string
+                  enum: [SPEAKING, EVENT]
+                meetingUrl:
+                  type: string
+                  format: uri
+                scheduledAt:
+                  type: string
+                  format: date-time
+                duration:
+                  type: integer
+                  minimum: 15
+                maxParticipants:
+                  type: integer
+                  minimum: 1
+                pointsRequired:
+                  type: integer
+                  minimum: 0
+                isActive:
+                  type: boolean
+      responses:
+        200:
+          description: Session updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        403:
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        404:
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: Session not found
+
+    delete:
+      tags:
+        - Admin
+      summary: Delete session
+      description: Deletes a session (Admin only)
+      parameters:
+        - in: path
+          name: sessionId
+          required: true
+          schema:
+            type: string
+          description: The session ID
+      responses:
+        200:
+          description: Session deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Session deleted successfully
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        403:
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        404:
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: Session not found
+
+  /admin/analytics/overview:
+    get:
+      tags:
+        - Admin
+      summary: Get analytics overview
+      description: Retrieves key platform metrics (Admin only)
+      responses:
+        200:
+          description: Analytics overview retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  totalUsers:
+                    type: integer
+                    example: 1247
+                  activeUsers:
+                    type: integer
+                    example: 892
+                  monthlyRevenue:
+                    type: integer
+                    example: 623500
+                  completionRate:
+                    type: integer
+                    description: Average lesson completion rate percentage
+                    example: 68
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        403:
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /admin/analytics/revenue:
+    get:
+      tags:
+        - Admin
+      summary: Get revenue analytics
+      description: Retrieves monthly revenue data (Admin only)
+      responses:
+        200:
+          description: Revenue analytics retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    month:
+                      type: string
+                      example: Jan
+                    revenue:
+                      type: integer
+                      example: 450000
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        403:
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /admin/analytics/engagement:
+    get:
+      tags:
+        - Admin
+      summary: Get engagement analytics
+      description: Retrieves user engagement data (Admin only)
+      responses:
+        200:
+          description: Engagement analytics retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    day:
+                      type: string
+                      example: Mon
+                    lessons:
+                      type: integer
+                      description: Number of lessons completed
+                      example: 245
+                    posts:
+                      type: integer
+                      description: Number of posts created
+                      example: 89
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        403:
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /admin/announcements:
+    post:
+      tags:
+        - Admin
+      summary: Create announcement
+      description: Creates a community announcement (Admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - content
+              properties:
+                content:
+                  type: string
+                  minLength: 1
+                  description: Announcement content
+                  example: System maintenance scheduled for this weekend
+      responses:
+        201:
+          description: Announcement created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Post"
+        400:
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        403:
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"

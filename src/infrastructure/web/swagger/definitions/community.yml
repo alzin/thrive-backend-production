@@ -1,0 +1,151 @@
+# src/infrastructure/web/swagger/definitions/community.yml
+tags:
+  - name: Community
+    description: Community posts and interactions endpoints
+
+paths:
+  /community/posts:
+    post:
+      tags:
+        - Community
+      summary: Create a post
+      description: Creates a new community post
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - content
+              properties:
+                content:
+                  type: string
+                  minLength: 1
+                  description: Post content
+                  example: Just completed my first N3 lesson! 🎉
+                mediaUrls:
+                  type: array
+                  items:
+                    type: string
+                    format: uri
+                  description: URLs of attached media
+                isAnnouncement:
+                  type: boolean
+                  default: false
+                  description: Whether this is an announcement (admin only)
+      responses:
+        201:
+          description: Post created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Post"
+        400:
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        403:
+          description: Forbidden - only admins can create announcements
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: Only admins can create announcements
+
+    get:
+      tags:
+        - Community
+      summary: Get posts
+      description: Retrieves community posts with pagination
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          description: Page number
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          description: Number of posts per page
+      responses:
+        200:
+          description: Posts retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/PaginationResponse"
+                  - type: object
+                    properties:
+                      posts:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/Post"
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /community/posts/{postId}/like:
+    post:
+      tags:
+        - Community
+      summary: Like a post
+      description: Likes a community post
+      parameters:
+        - in: path
+          name: postId
+          required: true
+          schema:
+            type: string
+          description: The post ID to like
+      responses:
+        200:
+          description: Post liked successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Post liked
+                  likesCount:
+                    type: integer
+                    description: Updated likes count
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        404:
+          description: Post not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: Post not found
