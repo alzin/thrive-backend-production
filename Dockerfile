@@ -5,10 +5,13 @@ WORKDIR /usr/src/app
 # Copy package.json and package-lock.json
 COPY package*.json ./
 
+# Install dependencies
+RUN npm install
+
 # Copy source files
 COPY . .
 
-# Attempt to run TypeScript compilation
+# Run TypeScript compilation
 RUN npx tsc
 
 # Expose the port the app runs on
