@@ -1,17 +1,18 @@
-# Dockerfile
-FROM node:20-alpine AS build
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci
-COPY . .
-RUN npm run build
+FROM node:22
 
-FROM node:20-alpine AS prod
-WORKDIR /app
+WORKDIR /usr/src/app
+
+# Copy package.json and package-lock.json
 COPY package*.json ./
-RUN npm ci --only=production
-COPY --from=build /app/dist ./dist
-COPY --from=build /app/src/docs ./dist/docs
-ENV NODE_ENV=production
+
+# Copy source files
+COPY . .
+
+# Attempt to run TypeScript compilation
+RUN npx tsc
+
+# Expose the port the app runs on
 EXPOSE 8080
-CMD ["node", "dist/index.js"]
+
+# Start the application
+CMD [ "npm", "start" ]
