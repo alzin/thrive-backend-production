@@ -17,13 +17,6 @@ export class S3StorageService {
             signatureVersion: 'v4', // Important for newer AWS regions
         };
 
-        console.log('Initializing S3StorageService with config:', {
-            region: awsConfig.region,
-            hasAccessKey: !!awsConfig.accessKeyId,
-            hasSecretKey: !!awsConfig.secretAccessKey,
-            signatureVersion: awsConfig.signatureVersion
-        });
-
         // Update AWS global configuration
         AWS.config.update(awsConfig);
 
@@ -41,14 +34,12 @@ export class S3StorageService {
             throw new Error('AWS_S3_BUCKET_NAME environment variable is required');
         }
 
-        console.log('S3StorageService initialized successfully');
     }
 
     /**
      * Sanitize filename to avoid encoding issues with special characters
      */
     private sanitizeFilename(originalName: string): string {
-        console.log('Original filename:', originalName);
 
         try {
             // First try to decode if it's URL encoded
@@ -65,7 +56,6 @@ export class S3StorageService {
 
             // If we have encoding issues, create a safe filename
             if (sanitized.includes('Ø') || sanitized.includes('\\x')) {
-                console.log('Detected encoding issues, generating safe filename');
                 const ext = path.extname(originalName).toLowerCase();
                 const timestamp = Date.now();
                 const uuid = uuidv4().substring(0, 8);
@@ -92,7 +82,6 @@ export class S3StorageService {
                 }
             }
 
-            console.log('Sanitized filename:', sanitized);
             return sanitized;
 
         } catch (error) {
@@ -158,10 +147,6 @@ export class S3StorageService {
         mimeType: string
     ): Promise<string> {
         try {
-            console.log('=== Profile Photo Upload Starting ===');
-            console.log('User ID:', userId);
-            console.log('File size:', fileBuffer.length, 'bytes');
-            console.log('MIME type:', mimeType);
 
             // Validate inputs
             if (!userId) {
@@ -186,11 +171,9 @@ export class S3StorageService {
 
             // Generate safe filename
             const safeFilename = this.generateProfilePhotoFilename(userId, mimeType);
-            console.log('Generated safe filename:', safeFilename);
 
             // Create S3 key with folder structure
             const key = `profiles/${userId}/${safeFilename}`;
-            console.log('S3 key:', key);
 
             // Prepare upload parameters
             const uploadParams: AWS.S3.PutObjectRequest = {
@@ -209,21 +192,9 @@ export class S3StorageService {
                 }
             };
 
-            console.log('Upload parameters:', {
-                Bucket: uploadParams.Bucket,
-                Key: uploadParams.Key,
-                ContentType: uploadParams.ContentType,
-                BufferSize: fileBuffer.length,
-                ACL: uploadParams.ACL
-            });
-
             // Perform S3 upload
-            console.log('Starting S3 upload...');
             const result = await this.s3.upload(uploadParams).promise();
 
-            console.log('✅ Profile photo upload successful!');
-            console.log('File URL:', result.Location);
-            console.log('ETag:', result.ETag);
 
             return result.Location;
 
@@ -263,17 +234,12 @@ export class S3StorageService {
     async deleteOldProfilePhoto(photoUrl: string): Promise<void> {
         try {
             if (!photoUrl) {
-                console.log('No photo URL provided for deletion');
                 return;
             }
-
-            console.log('Deleting old profile photo:', photoUrl);
-
             // Extract key from URL
             const url = new URL(photoUrl);
             const key = url.pathname.substring(1); // Remove leading slash
 
-            console.log('Extracted S3 key:', key);
 
             const deleteParams: AWS.S3.DeleteObjectRequest = {
                 Bucket: this.bucketName,
@@ -281,7 +247,6 @@ export class S3StorageService {
             };
 
             await this.s3.deleteObject(deleteParams).promise();
-            console.log('✅ Old profile photo deleted successfully');
 
         } catch (error: any) {
             console.error('❌ Delete old profile photo error:', error);
@@ -297,11 +262,6 @@ export class S3StorageService {
         fileData: { buffer: Buffer; filename: string; mimeType: string }
     ): Promise<{ url: string; size: number; mimeType: string }> {
         try {
-            console.log('=== S3 Upload Starting ===');
-            console.log('User ID:', userId);
-            console.log('Original filename:', fileData.filename);
-            console.log('File size:', fileData.buffer.length, 'bytes');
-            console.log('MIME type:', fileData.mimeType);
 
             // Validate inputs
             if (!userId) {
@@ -318,22 +278,9 @@ export class S3StorageService {
 
             // Generate safe filename
             const safeFilename = this.generateUniqueFilename(fileData.filename, userId);
-            console.log('Generated safe filename:', safeFilename);
 
             // Create S3 key with folder structure
             const key = `community/${userId}/${safeFilename}`;
-            console.log('S3 key:', key);
-
-            // Log current AWS configuration (without sensitive data)
-            console.log('AWS S3 Config Check:', {
-                region: AWS.config.region,
-                bucket: this.bucketName,
-                hasAccessKey: !!process.env.AWS_ACCESS_KEY_ID,
-                hasSecretKey: !!process.env.AWS_SECRET_ACCESS_KEY,
-                accessKeyLength: process.env.AWS_ACCESS_KEY_ID?.length,
-                secretKeyLength: process.env.AWS_SECRET_ACCESS_KEY?.length,
-                signatureVersion: this.s3.config.signatureVersion
-            });
 
             // Prepare upload parameters
             const uploadParams: AWS.S3.PutObjectRequest = {
@@ -352,21 +299,8 @@ export class S3StorageService {
                 }
             };
 
-            console.log('Upload parameters:', {
-                Bucket: uploadParams.Bucket,
-                Key: uploadParams.Key,
-                ContentType: uploadParams.ContentType,
-                BufferSize: uploadParams.Body instanceof Buffer ? uploadParams.Body.length : 'Unknown',
-                ACL: uploadParams.ACL
-            });
-
             // Perform S3 upload
-            console.log('Starting S3 upload...');
             const result = await this.s3.upload(uploadParams).promise();
-
-            console.log('✅ S3 upload successful!');
-            console.log('File URL:', result.Location);
-            console.log('ETag:', result.ETag);
 
             return {
                 url: result.Location,
@@ -375,15 +309,6 @@ export class S3StorageService {
             };
 
         } catch (error: any) {
-            console.error('❌ S3 Upload Error Details:');
-            console.error('Error message:', error.message);
-            console.error('Error code:', error.code);
-            console.error('Status code:', error.statusCode);
-            console.error('Request ID:', error.requestId);
-            console.error('Extended Request ID:', error.extendedRequestId);
-            console.error('Region:', error.region);
-            console.error('Time:', error.time);
-            console.error('Stack:', error.stack);
 
             // Provide specific error messages based on error codes
             let errorMessage = `Failed to upload to S3: ${error.message}`;
@@ -420,9 +345,6 @@ export class S3StorageService {
         filesData: Array<{ buffer: Buffer; filename: string; mimeType: string }>
     ): Promise<Array<{ url: string; size: number; mimeType: string }>> {
         try {
-            console.log(`=== Multiple Upload Starting ===`);
-            console.log(`User ID: ${userId}`);
-            console.log(`Number of files: ${filesData.length}`);
 
             // Validate input
             if (!filesData || filesData.length === 0) {
@@ -433,26 +355,11 @@ export class S3StorageService {
                 throw new Error('Maximum 10 files allowed per upload');
             }
 
-            // Log file details
-            filesData.forEach((fileData, index) => {
-                console.log(`File ${index + 1}:`, {
-                    filename: fileData.filename,
-                    size: fileData.buffer.length,
-                    type: fileData.mimeType
-                });
-            });
-
-            // Upload all files concurrently
-            console.log('Starting concurrent uploads...');
             const uploadPromises = filesData.map((fileData, index) => {
-                console.log(`Initiating upload ${index + 1}/${filesData.length}: ${fileData.filename}`);
                 return this.uploadCommunityMedia(userId, fileData);
             });
 
             const results = await Promise.all(uploadPromises);
-
-            console.log('✅ All uploads completed successfully!');
-            console.log('Uploaded URLs:', results.map(r => r.url));
 
             return results;
 
@@ -468,13 +375,9 @@ export class S3StorageService {
      */
     async deleteCommunityMedia(mediaUrl: string): Promise<void> {
         try {
-            console.log('Deleting media file:', mediaUrl);
-
             // Extract key from URL
             const url = new URL(mediaUrl);
             const key = url.pathname.substring(1); // Remove leading slash
-
-            console.log('Extracted S3 key:', key);
 
             const deleteParams: AWS.S3.DeleteObjectRequest = {
                 Bucket: this.bucketName,
@@ -482,10 +385,8 @@ export class S3StorageService {
             };
 
             await this.s3.deleteObject(deleteParams).promise();
-            console.log('✅ File deleted successfully');
 
         } catch (error: any) {
-            console.error('❌ Delete error:', error);
             throw new Error(`Failed to delete media: ${error.message}`);
         }
     }
@@ -495,7 +396,6 @@ export class S3StorageService {
      */
     async deleteMultipleCommunityMedia(mediaUrls: string[]): Promise<void> {
         try {
-            console.log('Deleting multiple media files:', mediaUrls.length);
 
             if (!mediaUrls || mediaUrls.length === 0) {
                 return;
@@ -505,7 +405,6 @@ export class S3StorageService {
             const deletePromises = mediaUrls.map(url => this.deleteCommunityMedia(url));
             await Promise.all(deletePromises);
 
-            console.log('✅ All files deleted successfully');
 
         } catch (error: any) {
             console.error('❌ Multiple delete error:', error);
@@ -519,15 +418,12 @@ export class S3StorageService {
      */
     async testConnection(): Promise<boolean> {
         try {
-            console.log('Testing S3 connection...');
 
             // Test 1: List buckets (credential test)
             const buckets = await this.s3.listBuckets().promise();
-            console.log('✅ Credentials valid. Available buckets:', buckets.Buckets?.map(b => b.Name));
 
             // Test 2: Check target bucket
             await this.s3.headBucket({ Bucket: this.bucketName }).promise();
-            console.log(`✅ Bucket "${this.bucketName}" is accessible`);
 
             // Test 3: Test upload/delete permissions
             const testKey = `test-connection-${Date.now()}.txt`;
@@ -543,7 +439,6 @@ export class S3StorageService {
                 Key: testKey
             }).promise();
 
-            console.log('✅ Upload/Delete permissions confirmed');
             return true;
 
         } catch (error: any) {

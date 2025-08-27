@@ -1,5 +1,4 @@
-// Add these columns to your existing UserEntity in backend/src/infrastructure/database/entities/User.entity.ts
-
+// backend/src/infrastructure/database/entities/User.entity.ts (UPDATE YOUR EXISTING FILE)
 import { Entity, PrimaryColumn, Column, CreateDateColumn, UpdateDateColumn, OneToOne } from 'typeorm';
 import { UserRole } from '../../../domain/entities/User';
 
@@ -25,13 +24,16 @@ export class UserEntity {
   isActive!: boolean;
 
   @Column({ default: false })
-  isverify!: boolean;  // New field
+  isverify!: boolean;
 
   @Column({ type: 'varchar', nullable: true, default: null })
   verificationCode!: string | null;
 
   @Column({ type: 'timestamp', nullable: true })
-  exprirat!: Date | null;  // New field
+  exprirat!: Date | null;
+
+  @Column({ default: false })
+  hasSeedTourVideo!: boolean; // ADD THIS FIELD
 
   @CreateDateColumn()
   createdAt!: Date;

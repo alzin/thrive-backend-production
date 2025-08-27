@@ -54,7 +54,6 @@ export class HandleSubscriptionWebhookUseCase {
     }
 
     private async handleCheckoutSessionCompleted(session: Stripe.Checkout.Session): Promise<void> {
-        console.log('📍 Processing checkout.session.completed:', session.id);
 
         const userId = session.metadata?.userId;
         const email = session.customer_email || session.metadata?.email;
@@ -79,7 +78,6 @@ export class HandleSubscriptionWebhookUseCase {
     }
 
     private async handleOneTimePayment(session: Stripe.Checkout.Session, userId: string, email: string): Promise<void> {
-        console.log('💳 Processing one-time payment for one-time access');
 
         // Create or get customer
         let customerId = session.customer as string;
@@ -107,7 +105,6 @@ export class HandleSubscriptionWebhookUseCase {
             existingSubscription.updatedAt = new Date();
 
             await this.subscriptionRepository.update(existingSubscription);
-            console.log('✅ Existing subscription updated to one-time:', existingSubscription.id);
         } else {
             // Create new subscription
             const subscription = new Subscription(
@@ -126,12 +123,10 @@ export class HandleSubscriptionWebhookUseCase {
             );
 
             await this.subscriptionRepository.create(subscription);
-            console.log('✅ One-time subscription created:', subscription.id);
         }
     }
 
     private async handleSubscriptionCreated(stripeSubscription: Stripe.Subscription): Promise<void> {
-        console.log('🔔 Processing customer.subscription.created:', stripeSubscription.id);
 
         const email = await this.getEmailFromCustomer(stripeSubscription.customer as string);
         if (!email) {
@@ -168,7 +163,6 @@ export class HandleSubscriptionWebhookUseCase {
             existingSubscription.updatedAt = new Date();
 
             await this.subscriptionRepository.update(existingSubscription);
-            console.log('✅ Existing subscription updated:', existingSubscription.id);
         } else {
             // Create new subscription
             const subscription = new Subscription(
@@ -187,7 +181,6 @@ export class HandleSubscriptionWebhookUseCase {
             );
 
             await this.subscriptionRepository.create(subscription);
-            console.log('✅ Subscription created:', subscription.id);
         }
     }
 
@@ -202,7 +195,6 @@ export class HandleSubscriptionWebhookUseCase {
     }
 
     private async handleSubscriptionUpdated(stripeSubscription: Stripe.Subscription): Promise<void> {
-        console.log('🔄 Processing customer.subscription.updated:', stripeSubscription);
 
         const subscription = await this.subscriptionRepository.findByStripeSubscriptionId(stripeSubscription.id);
         if (!subscription) {
@@ -221,16 +213,13 @@ export class HandleSubscriptionWebhookUseCase {
         // Check if plan changed
         const newPlan = this.extractPlanFromSubscription(stripeSubscription);
         if (newPlan !== subscription.subscriptionPlan) {
-            console.log(`📝 Plan changed from ${subscription.subscriptionPlan} to ${newPlan}`);
             subscription.subscriptionPlan = newPlan;
         }
 
         await this.subscriptionRepository.update(subscription);
-        console.log('✅ Subscription updated:', subscription.id);
     }
 
     private async handleSubscriptionDeleted(stripeSubscription: Stripe.Subscription): Promise<void> {
-        console.log('🚫 Processing customer.subscription.deleted:', stripeSubscription.id);
 
         const subscription = await this.subscriptionRepository.findByStripeSubscriptionId(stripeSubscription.id);
         if (!subscription) {
@@ -242,11 +231,9 @@ export class HandleSubscriptionWebhookUseCase {
         subscription.updatedAt = new Date();
 
         await this.subscriptionRepository.update(subscription);
-        console.log('✅ Subscription canceled:', subscription.id);
     }
 
     private async handleInvoicePaymentSucceeded(invoice: any): Promise<void> {
-        console.log('💰 Processing invoice.payment_succeeded:', invoice.id);
 
         if (!invoice.subscription) {
             console.log('Invoice is not for a subscription, skipping...');
@@ -264,15 +251,12 @@ export class HandleSubscriptionWebhookUseCase {
             subscription.stripePaymentIntentId = invoice.payment_intent as string;
             subscription.updatedAt = new Date();
             await this.subscriptionRepository.update(subscription);
-            console.log('✅ Payment intent linked to subscription');
         }
 
         // Log successful payment
-        console.log(`✅ Payment successful for subscription ${subscription.id}`);
     }
 
     private async handleInvoicePaymentFailed(invoice: any): Promise<void> {
-        console.log('❌ Processing invoice.payment_failed:', invoice.id);
 
         if (!invoice.subscription) {
             return;
@@ -289,13 +273,11 @@ export class HandleSubscriptionWebhookUseCase {
         subscription.updatedAt = new Date();
         await this.subscriptionRepository.update(subscription);
 
-        console.log(`⚠️ Payment failed for subscription ${subscription.id}`);
 
         // TODO: Send email notification to user about payment failure
     }
 
     private async handleTrialWillEnd(stripeSubscription: Stripe.Subscription): Promise<void> {
-        console.log('⏰ Processing customer.subscription.trial_will_end:', stripeSubscription.id);
 
         const subscription = await this.subscriptionRepository.findByStripeSubscriptionId(stripeSubscription.id);
         if (!subscription) {
@@ -304,7 +286,6 @@ export class HandleSubscriptionWebhookUseCase {
         }
 
         // TODO: Send email notification to user about trial ending
-        console.log(`📧 Trial ending soon for subscription ${subscription.id}`);
     }
 
     private extractPlanFromSubscription(stripeSubscription: Stripe.Subscription): SubscriptionPlan {
