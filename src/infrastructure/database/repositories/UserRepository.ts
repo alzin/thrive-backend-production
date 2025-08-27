@@ -1,3 +1,4 @@
+// backend/src/infrastructure/database/repositories/UserRepository.ts (UPDATE YOUR EXISTING FILE)
 import { Repository } from 'typeorm';
 import { AppDataSource } from '../config/database.config';
 import { UserEntity } from '../entities/User.entity';
@@ -50,9 +51,10 @@ export class UserRepository implements IUserRepository {
       entity.password,
       entity.role,
       entity.isActive,
-      entity.isverify,      // New field
+      entity.isverify,
       entity.verificationCode,
-      entity.exprirat,       // New field
+      entity.exprirat,
+      entity.hasSeedTourVideo, // ADD THIS FIELD
       entity.createdAt,
       entity.updatedAt
     );
@@ -65,9 +67,10 @@ export class UserRepository implements IUserRepository {
     entity.password = domain.password;
     entity.role = domain.role;
     entity.isActive = domain.isActive;
-    entity.isverify = domain.isverify;      // New field
-    entity.verificationCode = domain.verificationCode
-    entity.exprirat = domain.exprirat;       // New field
+    entity.isverify = domain.isverify;
+    entity.verificationCode = domain.verificationCode;
+    entity.exprirat = domain.exprirat;
+    entity.hasSeedTourVideo = domain.hasSeedTourVideo; // ADD THIS FIELD
     entity.createdAt = domain.createdAt;
     entity.updatedAt = domain.updatedAt;
     return entity;

@@ -35,9 +35,6 @@ export class CheckUserSubscriptionUseCase {
         const subscription = await this.subscriptionRepository.findByUserId(dto.userId);
         const acccessSubscription = await this.subscriptionRepository.findActiveByUserId(dto.userId);
 
-
-        console.log('User subscription:', subscription);
-
         // Check if user has an active subscription
         const hasSubscription = user.role === "ADMIN" ? true : subscription !== null;
         const hasAccessToCourses = user.role === "ADMIN" ? true : acccessSubscription !== null;

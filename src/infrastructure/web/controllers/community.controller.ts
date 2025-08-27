@@ -21,10 +21,6 @@ export class CommunityController {
 
   async uploadMedia(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
   try {
-    console.log('uploadMedia called');
-    console.log('req.files:', req.files);
-    console.log('req.body:', req.body);
-    console.log('Files array check:', Array.isArray(req.files));
     
     if (!req.files || !Array.isArray(req.files) || req.files.length === 0) {
       console.log('No files uploaded - req.files:', req.files);
@@ -35,19 +31,11 @@ export class CommunityController {
     const files = req.files as Express.Multer.File[];
     const userId = req.user!.userId;
 
-    console.log('Processing files:', files.map(f => ({ 
-      fieldname: f.fieldname,
-      originalname: f.originalname, 
-      mimetype: f.mimetype, 
-      size: f.size 
-    })));
-
     // Validate all files before processing
     for (const file of files) {
       try {
         S3StorageService.validateCommunityMediaFile(file);
       } catch (error: any) {
-        console.log('File validation failed:', error.message);
         res.status(400).json({ error: error.message });
         return;
       }
@@ -340,8 +328,6 @@ export class CommunityController {
       content: content.trim(),
       parentCommentId
     });
-
-    console.log('Comment created:', comment);
 
     res.status(201).json({
       success: true,

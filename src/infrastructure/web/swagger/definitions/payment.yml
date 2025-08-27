@@ -21,13 +21,13 @@ paths:
                   type: integer
                   minimum: 1
                   default: 5000
-                  description: Amount in smallest currency unit (e.g., cents for USD, yen for JPY)
+                  description: Amount in smallest currency unit (e.g., cents for USD, yen for USD)
                   example: 5000
                 currency:
                   type: string
-                  default: jpy
+                  default: usd
                   description: Three-letter ISO currency code
-                  example: jpy
+                  example: usd
       responses:
         200:
           description: Payment intent created successfully
@@ -47,7 +47,7 @@ paths:
                   currency:
                     type: string
                     description: Payment currency
-                    example: jpy
+                    example: usd
         400:
           description: Invalid request parameters
           content:

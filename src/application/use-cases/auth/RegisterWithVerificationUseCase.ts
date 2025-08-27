@@ -68,6 +68,7 @@ export class RegisterWithVerificationUseCase {
             false, // isverify
             verificationCode,
             expirationDate,
+            false,
             new Date(),
             new Date()
         );

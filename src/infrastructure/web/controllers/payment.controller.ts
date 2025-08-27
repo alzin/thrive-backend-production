@@ -67,7 +67,7 @@ export class PaymentController {
 
   createPaymentIntent = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const { amount = 5000, currency = 'jpy', email } = req.body;
+      const { amount = 5000, currency = 'usd', email } = req.body;
 
       const metadata: any = {
         description: 'Thrive in Japan LMS Access'

@@ -56,6 +56,7 @@ export class RegisterUserUseCase {
       false,
       null,
       null,
+      false,
       new Date(),
       new Date()
     );
