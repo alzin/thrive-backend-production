@@ -8,13 +8,13 @@ export interface CookieConfig {
 export const getAccessTokenCookieConfig = (): CookieConfig => ({
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
+    sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax'
 });
 
 export const getRefreshTokenCookieConfig = (): CookieConfig => ({
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
+    sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax'
 });
 
 export const COOKIE_NAMES = {
