@@ -93,7 +93,7 @@ export class RegisterWithVerificationUseCase {
             dto.name,
             '',
             '',
-            'N1',
+            'N5',
             0,
             [],
             1,
