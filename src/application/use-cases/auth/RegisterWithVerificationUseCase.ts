@@ -26,6 +26,8 @@ export class RegisterWithVerificationUseCase {
         const existingUser = await this.userRepository.findByEmail(dto.email);
 
         if (existingUser) {
+            const userProfile = await this.profileRepository.findByUserId(existingUser.id);
+
             if (existingUser.isverify) {
                 throw new Error('User already exists');
             }
@@ -42,6 +44,15 @@ export class RegisterWithVerificationUseCase {
             existingUser.updatedAt = new Date();
 
             const updatedUser = await this.userRepository.update(existingUser);
+
+            if (!userProfile) {
+                throw new Error('Profile not found');
+            }
+
+            userProfile.name = dto.name.trim();
+            userProfile.updatedAt = new Date();
+
+            await this.profileRepository.update(userProfile);
 
             // Send verification email
             await this.emailService.sendVerificationCode(dto.email, verificationCode);
@@ -61,7 +72,7 @@ export class RegisterWithVerificationUseCase {
         // Create new user with isverify = false
         const user = new User(
             `${Date.now()}-${Math.random().toString(36).substring(2, 10)}`,
-            dto.email,
+            dto.email.trim(),
             hashedPassword,
             UserRole.STUDENT,
             true,
@@ -82,7 +93,7 @@ export class RegisterWithVerificationUseCase {
             dto.name,
             '',
             '',
-            'N5',
+            'N1',
             0,
             [],
             1,
