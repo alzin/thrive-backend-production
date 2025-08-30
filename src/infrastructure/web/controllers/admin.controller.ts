@@ -354,6 +354,7 @@ export class AdminController {
         maxParticipants,
         pointsRequired,
         isRecurring,
+        isActive,
         recurringWeeks
       } = req.body;
 
@@ -375,7 +376,7 @@ export class AdminController {
           duration,
           maxParticipants,
           pointsRequired: pointsRequired || 0,
-          isActive: true,
+          isActive: isActive,
           recurringWeeks
         });
 
@@ -404,7 +405,7 @@ export class AdminController {
           maxParticipants,
           0,
           pointsRequired || 0,
-          true,
+          isActive,
           false, // isRecurring
           undefined, // recurringParentId
           undefined, // recurringWeeks
