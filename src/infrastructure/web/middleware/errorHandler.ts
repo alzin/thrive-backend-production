@@ -31,9 +31,13 @@ export const errorHandler = (
     statusCode = 404;
   } else if (err.message.includes('already exists')) {
     statusCode = 409;
-  } else if (err.message.includes('Invalid') || err.message.includes('Unauthorized')) {
+  } else if (err.message.includes('Unauthorized')) {
     statusCode = 401;
   }
+
+  // else if (err.message.includes('Invalid') || err.message.includes('Unauthorized')) {
+  //   statusCode = 401;
+  // }
 
   // Send the error response
   res.status(statusCode).json({
