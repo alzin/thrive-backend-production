@@ -105,7 +105,7 @@ export class PaymentService implements IPaymentService {
     }
 
     // Add subscription_data only for subscription mode
-    if (params.mode === 'subscription' && !params.customerId) {
+    if (params.mode === 'subscription' && !params.customerId && params.metadata.hasTrial !== false) {
       sessionConfig.subscription_data = {
         trial_end: daysToSecondsFromNow(Number(process.env.STRIPE_FREE_DAYS)) + 200
       };
