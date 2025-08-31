@@ -25,6 +25,11 @@ export class PaymentController {
     yearly: {
       regular: process.env.STRIPE_YEARLY_PRICE_ID || '',
       discounted: process.env.STRIPE_YEARLY_DISCOUNT_PRICE_ID || ''
+    },
+
+    monthlySpecial: {
+      regular: process.env.STRIPE_MONTHLY_PRICE_ID_SPECIAL || '',
+      discounted: process.env.STRIPE_MONTHLY_PRICE_ID_SPECIAL || ''
     }
   };
 
