@@ -1,3 +1,4 @@
+// backend/src/infrastructure/web/controllers/community.controller.ts - Updated to handle both posts and announcements
 import { Response, NextFunction } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { CreatePostUseCase } from '../../../application/use-cases/community/CreatePostUseCase';
@@ -9,6 +10,7 @@ import { PostLikeRepository } from '../../database/repositories/PostLikeReposito
 import { UserRepository } from '../../database/repositories/UserRepository';
 import { ProfileRepository } from '../../database/repositories/ProfileRepository';
 import { CommentRepository } from "../../database/repositories/CommentRepository";
+import { AnnouncementRepository } from "../../database/repositories/AnnouncementRepository"; // Add this import
 import { ActivityService } from '../../services/ActivityService';
 import { S3StorageService } from '../../services/S3StorageService';
 
@@ -20,52 +22,49 @@ export class CommunityController {
   }
 
   async uploadMedia(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
-  try {
-    
-    if (!req.files || !Array.isArray(req.files) || req.files.length === 0) {
-      console.log('No files uploaded - req.files:', req.files);
-      res.status(400).json({ error: 'No files uploaded' });
-      return;
-    }
-
-    const files = req.files as Express.Multer.File[];
-    const userId = req.user!.userId;
-
-    // Validate all files before processing
-    for (const file of files) {
-      try {
-        S3StorageService.validateCommunityMediaFile(file);
-      } catch (error: any) {
-        res.status(400).json({ error: error.message });
+    try {
+      if (!req.files || !Array.isArray(req.files) || req.files.length === 0) {
+        console.log('No files uploaded - req.files:', req.files);
+        res.status(400).json({ error: 'No files uploaded' });
         return;
       }
+
+      const files = req.files as Express.Multer.File[];
+      const userId = req.user!.userId;
+
+      for (const file of files) {
+        try {
+          S3StorageService.validateCommunityMediaFile(file);
+        } catch (error: any) {
+          res.status(400).json({ error: error.message });
+          return;
+        }
+      }
+
+      const uploadedFiles = await this.storageService.uploadMultipleCommunityMedia(
+        userId,
+        files.map(file => ({
+          buffer: file.buffer,
+          filename: file.originalname,
+          mimeType: file.mimetype,
+        }))
+      );
+
+      console.log('Files uploaded successfully:', uploadedFiles.length);
+
+      res.json({
+        message: 'Files uploaded successfully',
+        files: uploadedFiles.map(file => ({
+          url: file.url,
+          size: file.size,
+          mimeType: file.mimeType,
+        })),
+      });
+    } catch (error) {
+      console.error('Media upload error:', error);
+      next(error);
     }
-
-    // Upload files to S3
-    const uploadedFiles = await this.storageService.uploadMultipleCommunityMedia(
-      userId,
-      files.map(file => ({
-        buffer: file.buffer,
-        filename: file.originalname,
-        mimeType: file.mimetype,
-      }))
-    );
-
-    console.log('Files uploaded successfully:', uploadedFiles.length);
-
-    res.json({
-      message: 'Files uploaded successfully',
-      files: uploadedFiles.map(file => ({
-        url: file.url,
-        size: file.size,
-        mimeType: file.mimeType,
-      })),
-    });
-  } catch (error) {
-    console.error('Media upload error:', error);
-    next(error);
   }
-}
 
   async deleteMedia(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
@@ -76,9 +75,7 @@ export class CommunityController {
         return;
       }
 
-      // Delete files from S3
       await this.storageService.deleteMultipleCommunityMedia(mediaUrls);
-
       res.json({ message: 'Media files deleted successfully' });
     } catch (error) {
       console.error('Media deletion error:', error);
@@ -86,9 +83,11 @@ export class CommunityController {
     }
   }
 
+  // ... Keep all existing post methods unchanged ...
+
   async createPost(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { content, mediaUrls   } = req.body;
+      const { content, mediaUrls } = req.body;
 
       const createPostUseCase = new CreatePostUseCase(
         new PostRepository(),
@@ -169,13 +168,11 @@ export class CommunityController {
         return;
       }
 
-      // Delete associated media files from S3 before deleting the post
       if (post.mediaUrls && post.mediaUrls.length > 0) {
         try {
           await this.storageService.deleteMultipleCommunityMedia(post.mediaUrls);
         } catch (error) {
           console.warn('Failed to delete media files:', error);
-          // Continue with post deletion even if media deletion fails
         }
       }
 
@@ -209,13 +206,11 @@ export class CommunityController {
         return;
       }
 
-      // Delete removed media files from S3
       if (removedMediaUrls && removedMediaUrls.length > 0) {
         try {
           await this.storageService.deleteMultipleCommunityMedia(removedMediaUrls);
         } catch (error) {
           console.warn('Failed to delete removed media files:', error);
-          // Continue with post update even if media deletion fails
         }
       }
 
@@ -237,13 +232,13 @@ export class CommunityController {
     }
   }
 
-  // Comments Operations
+  // UPDATED: Comments Operations - Now supports both Posts and Announcements
   async getCommentsByPost(req: AuthRequest, res: Response, next: NextFunction) {
     try {
-      const { postId } = req.params;
+      const { postId } = req.params; // This can be either a post ID or announcement ID
       const { page = 1, limit = 20, includeReplies = true } = req.query;
 
-      console.log('Getting comments for post:', postId, { page, limit, includeReplies });
+      console.log('Getting comments for content:', postId, { page, limit, includeReplies });
 
       const getCommentsUseCase = new GetCommentsUseCase(
         new CommentRepository(),
@@ -252,14 +247,22 @@ export class CommunityController {
       );
 
       const result = await getCommentsUseCase.execute({
-        postId,
+        postId, // Generic - works for both posts and announcements
         currentUserId: req.user?.userId,
         page: Number(page),
         limit: Number(limit),
         includeReplies: String(includeReplies).toLowerCase() === 'true'
       });
 
-      // Get the total count of ALL comments (including replies) for accurate count
+      // Backend enhancement: Add metadata to help frontend handle editing states
+      const enhancedComments = result.comments.map(comment => ({
+        ...comment,
+        canEdit: comment.author?.userId === req.user?.userId,
+        canDelete: comment.author?.userId === req.user?.userId || req.user?.role === 'ADMIN',
+        hasReplies: comment.replies && comment.replies.length > 0,
+        replies: comment.replies || []
+      }));
+
       const commentRepository = new CommentRepository();
       const totalCommentsIncludingReplies = await commentRepository.countByPost(postId);
 
@@ -268,10 +271,10 @@ export class CommunityController {
       res.status(200).json({
         success: true,
         data: {
-          comments: result.comments,
+          comments: enhancedComments,
           pagination: {
-            total: result.total, // This is just top-level comments for pagination
-            totalWithReplies: totalCommentsIncludingReplies, // Total including all replies
+            total: result.total,
+            totalWithReplies: totalCommentsIncludingReplies,
             page: result.page,
             limit: Number(limit),
             totalPages: result.totalPages,
@@ -287,102 +290,12 @@ export class CommunityController {
   }
 
   async createComment(req: AuthRequest, res: Response, next: NextFunction) {
-  try {
-    const { postId } = req.params;
-    const { content, parentCommentId } = req.body;
-    const userId = req.user?.userId;
-
-    console.log('Creating comment:', { postId, userId, content, parentCommentId });
-
-    if (!userId) {
-      return res.status(401).json({
-        success: false,
-        message: "Authentication required"
-      });
-    }
-
-    if (!content || content.trim().length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: "Comment content is required"
-      });
-    }
-
-    if (content.trim().length > 1000) {
-      return res.status(400).json({
-        success: false,
-        message: "Comment content must not exceed 1000 characters"
-      });
-    }
-
-    const createCommentUseCase = new CreateCommentUseCase(
-      new CommentRepository(),
-      new PostRepository(), // PostRepository implements ICommentableRepository
-      new UserRepository(),
-      new ProfileRepository()
-    );
-
-    const comment = await createCommentUseCase.execute({
-      userId,
-      postId,
-      content: content.trim(),
-      parentCommentId
-    });
-
-    res.status(201).json({
-      success: true,
-      data: comment
-    });
-  } catch (error) {
-    console.error('Error in createComment:', error);
-    next(error);
-  }
-}
-
-  async getCommentById(req: AuthRequest, res: Response, next: NextFunction) {
     try {
-      const { commentId } = req.params;
-
-      const commentRepository = new CommentRepository();
-      const userRepository = new UserRepository();
-      const profileRepository = new ProfileRepository();
-
-      const comment = await commentRepository.findById(commentId);
-
-      if (!comment) {
-        return res.status(404).json({
-          success: false,
-          message: "Comment not found"
-        });
-      }
-
-      // Enrich with author information
-      const user = await userRepository.findById(comment.userId);
-      const profile = await profileRepository.findByUserId(comment.userId);
-
-      comment.author = {
-        userId: comment.userId,
-        name: profile?.name || user?.email?.split('@')[0] || 'Unknown User',
-        email: user?.email || '',
-        avatar: profile?.profilePhoto || '',
-        level: profile?.level || 1,
-      };
-
-      res.status(200).json({
-        success: true,
-        data: comment
-      });
-    } catch (error) {
-      console.error('Error in getCommentById:', error);
-      next(error);
-    }
-  }
-
-  async updateComment(req: AuthRequest, res: Response, next: NextFunction) {
-    try {
-      const { commentId } = req.params;
-      const { content } = req.body;
+      const { postId } = req.params; // Can be post ID or announcement ID
+      const { content, parentCommentId } = req.body;
       const userId = req.user?.userId;
+
+      console.log('Creating comment:', { postId, userId, content, parentCommentId });
 
       if (!userId) {
         return res.status(401).json({
@@ -405,6 +318,88 @@ export class CommunityController {
         });
       }
 
+      // UPDATED: Use appropriate repository based on content type
+      let commentableRepository;
+      try {
+        // Try to find as post first
+        const postRepository = new PostRepository();
+        const post = await postRepository.findById(postId);
+        if (post) {
+          commentableRepository = postRepository;
+        } else {
+          // If not found as post, try as announcement
+          const announcementRepository = new AnnouncementRepository();
+          const announcement = await announcementRepository.findById(postId);
+          if (announcement) {
+            commentableRepository = announcementRepository;
+          } else {
+            return res.status(404).json({
+              success: false,
+              message: "Content not found"
+            });
+          }
+        }
+      } catch (error) {
+        return res.status(404).json({
+          success: false,
+          message: "Content not found"
+        });
+      }
+
+      const createCommentUseCase = new CreateCommentUseCase(
+        new CommentRepository(),
+        commentableRepository, // Dynamic repository
+        new UserRepository(),
+        new ProfileRepository()
+      );
+
+      const comment = await createCommentUseCase.execute({
+        userId,
+        postId, // Generic - works for both posts and announcements
+        content: content.trim(),
+        parentCommentId
+      });
+
+      res.status(201).json({
+        success: true,
+        data: comment
+      });
+    } catch (error) {
+      console.error('Error in createComment:', error);
+      next(error);
+    }
+  }
+
+  async updateComment(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { commentId } = req.params;
+      const { content } = req.body;
+      const userId = req.user?.userId;
+
+      if (!userId) {
+        res.status(401).json({
+          success: false,
+          message: "Authentication required"
+        });
+        return;
+      }
+
+      if (!content || content.trim().length === 0) {
+        res.status(400).json({
+          success: false,
+          message: "Comment content is required"
+        });
+        return;
+      }
+
+      if (content.trim().length > 1000) {
+        res.status(400).json({
+          success: false,
+          message: "Comment content must not exceed 1000 characters"
+        });
+        return;
+      }
+
       const commentRepository = new CommentRepository();
       const userRepository = new UserRepository();
       const profileRepository = new ProfileRepository();
@@ -412,18 +407,19 @@ export class CommunityController {
       const existingComment = await commentRepository.findById(commentId);
 
       if (!existingComment) {
-        return res.status(404).json({
+        res.status(404).json({
           success: false,
           message: "Comment not found"
         });
+        return;
       }
 
-      // Check if user owns the comment
       if (existingComment.userId !== userId) {
-        return res.status(403).json({
+        res.status(403).json({
           success: false,
           message: "You can only edit your own comments"
         });
+        return;
       }
 
       // Update the comment
@@ -444,12 +440,76 @@ export class CommunityController {
         level: profile?.level || 1,
       };
 
+      // CRITICAL: Include replies for parent comments (works for both posts and announcements)
+      if (updatedComment.parentCommentId === null || updatedComment.parentCommentId === undefined) {
+        const replies = await commentRepository.findReplies(commentId);
+        
+        const enrichedReplies = await Promise.all(
+          replies.map(async (reply) => {
+            const replyUser = await userRepository.findById(reply.userId);
+            const replyProfile = await profileRepository.findByUserId(reply.userId);
+
+            reply.author = {
+              userId: reply.userId,
+              name: replyProfile?.name || replyUser?.email?.split('@')[0] || 'Unknown User',
+              email: replyUser?.email || '',
+              avatar: replyProfile?.profilePhoto || '',
+              level: replyProfile?.level || 1,
+            };
+
+            return reply;
+          })
+        );
+
+        updatedComment.replies = enrichedReplies;
+      }
+
       res.status(200).json({
         success: true,
         data: updatedComment
       });
     } catch (error) {
       console.error('Error in updateComment:', error);
+      next(error);
+    }
+  }
+
+  // ... Keep all other existing methods unchanged ...
+
+  async getCommentById(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const { commentId } = req.params;
+
+      const commentRepository = new CommentRepository();
+      const userRepository = new UserRepository();
+      const profileRepository = new ProfileRepository();
+
+      const comment = await commentRepository.findById(commentId);
+
+      if (!comment) {
+        return res.status(404).json({
+          success: false,
+          message: "Comment not found"
+        });
+      }
+
+      const user = await userRepository.findById(comment.userId);
+      const profile = await profileRepository.findByUserId(comment.userId);
+
+      comment.author = {
+        userId: comment.userId,
+        name: profile?.name || user?.email?.split('@')[0] || 'Unknown User',
+        email: user?.email || '',
+        avatar: profile?.profilePhoto || '',
+        level: profile?.level || 1,
+      };
+
+      res.status(200).json({
+        success: true,
+        data: comment
+      });
+    } catch (error) {
+      console.error('Error in getCommentById:', error);
       next(error);
     }
   }
@@ -476,7 +536,6 @@ export class CommunityController {
         });
       }
 
-      // Check if user owns the comment
       if (existingComment.userId !== userId) {
         return res.status(403).json({
           success: false,
@@ -513,7 +572,6 @@ export class CommunityController {
 
       const replies = await commentRepository.findReplies(commentId);
 
-      // Enrich replies with author information
       const enrichedReplies = await Promise.all(
         replies.map(async (reply) => {
           const user = await userRepository.findById(reply.userId);
@@ -543,22 +601,18 @@ export class CommunityController {
 
   async getCommentCount(req: AuthRequest, res: Response, next: NextFunction) {
     try {
-      const { postId } = req.params;
+      const { postId } = req.params; // Can be post ID or announcement ID
 
       const commentRepository = new CommentRepository();
-
-      // Get total count including all replies
       const totalCount = await commentRepository.countByPost(postId);
-
-      // Optionally also get top-level count
       const topLevelCount = await commentRepository.countTopLevelByPost(postId);
 
       res.status(200).json({
         success: true,
         data: {
-          count: totalCount, // Total including replies
-          topLevelCount, // Just top-level comments
-          repliesCount: totalCount - topLevelCount // Number of replies
+          count: totalCount,
+          topLevelCount,
+          repliesCount: totalCount - topLevelCount
         }
       });
     } catch (error) {
