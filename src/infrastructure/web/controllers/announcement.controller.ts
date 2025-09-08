@@ -1,4 +1,4 @@
-// backend/src/infrastructure/web/controllers/announcement.controller.ts
+// backend/src/infrastructure/web/controllers/announcement.controller.ts - FIXED
 import { Response, NextFunction } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { CreateAnnouncementUseCase } from '../../../application/use-cases/announcement/CreateAnnouncementUseCase';
@@ -13,6 +13,208 @@ import { CreateCommentUseCase } from "../../../application/use-cases/community/C
 import { ActivityService } from '../../services/ActivityService';
 
 export class AnnouncementController {
+  // ... keep all existing methods until updateComment ...
+
+  // Fixed updateComment method for AnnouncementController
+  async updateComment(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const { commentId } = req.params;
+      const { content } = req.body;
+      const userId = req.user?.userId;
+
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          message: "Authentication required"
+        });
+      }
+
+      if (!content || content.trim().length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: "Comment content is required"
+        });
+      }
+
+      if (content.trim().length > 1000) {
+        return res.status(400).json({
+          success: false,
+          message: "Comment content must not exceed 1000 characters"
+        });
+      }
+
+      const commentRepository = new CommentRepository();
+      const userRepository = new UserRepository();
+      const profileRepository = new ProfileRepository();
+
+      const existingComment = await commentRepository.findById(commentId);
+
+      if (!existingComment) {
+        return res.status(404).json({
+          success: false,
+          message: "Comment not found"
+        });
+      }
+
+      if (existingComment.userId !== userId) {
+        return res.status(403).json({
+          success: false,
+          message: "You can only edit your own comments"
+        });
+      }
+
+      // Update the comment content
+      existingComment.content = content.trim();
+      existingComment.updatedAt = new Date();
+
+      const updatedComment = await commentRepository.update(existingComment);
+
+      if (!updatedComment) {
+        return res.status(500).json({
+          success: false,
+          message: "Failed to update comment"
+        });
+      }
+
+      // Fetch user and profile data to populate author information
+      const user = await userRepository.findById(userId);
+      const profile = await profileRepository.findByUserId(userId);
+
+      if (!user) {
+        return res.status(500).json({
+          success: false,
+          message: "User data not found"
+        });
+      }
+
+      // Transform response to include complete author data
+      const responseData = {
+        id: updatedComment.id,
+        postId: updatedComment.postId,
+        userId: updatedComment.userId,
+        content: updatedComment.content,
+        parentCommentId: updatedComment.parentCommentId,
+        createdAt: updatedComment.createdAt,
+        updatedAt: updatedComment.updatedAt,
+        author: {
+          userId: user.id,
+          name: profile?.name || user.email?.split('@')[0] || 'User',
+          email: user.email || '',
+          avatar: profile?.profilePhoto || '',
+          level: profile?.level || 1
+        }
+      };
+
+      console.log('Updated comment with author data:', responseData);
+
+      // FIX: Match the expected structure from Redux thunk
+      res.status(200).json({
+        success: true,
+        data: responseData // ← Keep 'data' to match Redux thunk expectation
+      });
+
+    } catch (error) {
+      console.error('Error in updateComment for announcement:', error);
+      next(error);
+    }
+  }
+
+  // Helper method to transform comment data with author info (for consistency)
+  private async transformCommentWithAuthor(comment: any, userRepository: UserRepository, profileRepository: ProfileRepository) {
+    try {
+      const user = await userRepository.findById(comment.userId);
+      const profile = await profileRepository.findByUserId(comment.userId);
+
+      return {
+        id: comment.id,
+        postId: comment.postId,
+        userId: comment.userId,
+        content: comment.content,
+        parentCommentId: comment.parentCommentId,
+        createdAt: comment.createdAt,
+        updatedAt: comment.updatedAt,
+        author: {
+          userId: user?.id || comment.userId,
+          name: profile?.name || user?.email?.split('@')[0] || 'User',
+          email: user?.email || '',
+          avatar: profile?.profilePhoto || '',
+          level: profile?.level || 1
+        }
+      };
+    } catch (error) {
+      console.error('Error transforming comment with author:', error);
+      // Return comment with basic author info as fallback
+      return {
+        ...comment,
+        author: {
+          userId: comment.userId,
+          name: 'User',
+          email: '',
+          avatar: '',
+          level: 1
+        }
+      };
+    }
+  }
+
+  // ALSO FIX: Update createComment to ensure consistent author data
+  async createComment(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const { announcementId } = req.params;
+      const { content, parentCommentId } = req.body;
+      const userId = req.user?.userId;
+
+      console.log('Creating comment for announcement:', { announcementId, userId, content, parentCommentId });
+
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          message: "Authentication required"
+        });
+      }
+
+      if (!content || content.trim().length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: "Comment content is required"
+        });
+      }
+
+      if (content.trim().length > 1000) {
+        return res.status(400).json({
+          success: false,
+          message: "Comment content must not exceed 1000 characters"
+        });
+      }
+
+      const createCommentUseCase = new CreateCommentUseCase(
+        new CommentRepository(),
+        new AnnouncementRepository(),
+        new UserRepository(),
+        new ProfileRepository()
+      );
+
+      // Create comment using the use case (which should handle author population)
+      const comment = await createCommentUseCase.execute({
+        userId,
+        postId: announcementId,
+        content: content.trim(),
+        parentCommentId
+      });
+
+      console.log('Comment created for announcement:', comment);
+
+      res.status(201).json({
+        success: true,
+        data: comment
+      });
+    } catch (error) {
+      console.error('Error in createComment for announcement:', error);
+      next(error);
+    }
+  }
+
+  // Keep all other existing methods unchanged...
   async createAnnouncement(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { content } = req.body;
@@ -160,7 +362,6 @@ export class AnnouncementController {
     }
   }
 
-  // Comments Operations for Announcements
   async getCommentsByAnnouncement(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const { announcementId } = req.params;
@@ -174,7 +375,6 @@ export class AnnouncementController {
         new ProfileRepository()
       );
 
-      // Use announcementId as postId since comments use postId field
       const result = await getCommentsUseCase.execute({
         postId: announcementId,
         currentUserId: req.user?.userId,
@@ -183,7 +383,6 @@ export class AnnouncementController {
         includeReplies: String(includeReplies).toLowerCase() === 'true'
       });
 
-      // Get the total count of ALL comments (including replies) for accurate count
       const commentRepository = new CommentRepository();
       const totalCommentsIncludingReplies = await commentRepository.countByPost(announcementId);
 
@@ -194,8 +393,8 @@ export class AnnouncementController {
         data: {
           comments: result.comments,
           pagination: {
-            total: result.total, // This is just top-level comments for pagination
-            totalWithReplies: totalCommentsIncludingReplies, // Total including all replies
+            total: result.total,
+            totalWithReplies: totalCommentsIncludingReplies,
             page: result.page,
             limit: Number(limit),
             totalPages: result.totalPages,
@@ -210,80 +409,20 @@ export class AnnouncementController {
     }
   }
 
-  async createComment(req: AuthRequest, res: Response, next: NextFunction) {
-    try {
-      const { announcementId } = req.params;
-      const { content, parentCommentId } = req.body;
-      const userId = req.user?.userId;
-
-      console.log('Creating comment for announcement:', { announcementId, userId, content, parentCommentId });
-
-      if (!userId) {
-        return res.status(401).json({
-          success: false,
-          message: "Authentication required"
-        });
-      }
-
-      if (!content || content.trim().length === 0) {
-        return res.status(400).json({
-          success: false,
-          message: "Comment content is required"
-        });
-      }
-
-      if (content.trim().length > 1000) {
-        return res.status(400).json({
-          success: false,
-          message: "Comment content must not exceed 1000 characters"
-        });
-      }
-
-      const createCommentUseCase = new CreateCommentUseCase(
-        new CommentRepository(),
-        new AnnouncementRepository(), // This now works because AnnouncementRepository implements ICommentableRepository
-        new UserRepository(),
-        new ProfileRepository()
-      );
-
-      // Use announcementId as postId since comments use postId field
-      const comment = await createCommentUseCase.execute({
-        userId,
-        postId: announcementId,
-        content: content.trim(),
-        parentCommentId
-      });
-
-      console.log('Comment created for announcement:', comment);
-
-      res.status(201).json({
-        success: true,
-        data: comment
-      });
-    } catch (error) {
-      console.error('Error in createComment for announcement:', error);
-      next(error);
-    }
-  }
-
   async getCommentCount(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const { announcementId } = req.params;
 
       const commentRepository = new CommentRepository();
-
-      // Get total count including all replies (using announcementId as postId)
       const totalCount = await commentRepository.countByPost(announcementId);
-
-      // Optionally also get top-level count
       const topLevelCount = await commentRepository.countTopLevelByPost(announcementId);
 
       res.status(200).json({
         success: true,
         data: {
-          count: totalCount, // Total including replies
-          topLevelCount, // Just top-level comments
-          repliesCount: totalCount - topLevelCount // Number of replies
+          count: totalCount,
+          topLevelCount,
+          repliesCount: totalCount - topLevelCount
         }
       });
     } catch (error) {
@@ -315,7 +454,6 @@ export class AnnouncementController {
         });
       }
 
-      // Check if user owns the comment
       if (existingComment.userId !== userId) {
         return res.status(403).json({
           success: false,
@@ -332,10 +470,8 @@ export class AnnouncementController {
         });
       }
 
-      // After successful deletion, re-calculate the total comment count
       const newTotalCommentCount = await commentRepository.countByPost(existingComment.postId);
 
-      // Update the commentsCount on the parent announcement directly
       const announcement = await announcementRepository.findById(existingComment.postId);
       if (announcement) {
         announcement.commentsCount = newTotalCommentCount;
@@ -345,49 +481,10 @@ export class AnnouncementController {
       res.status(200).json({
         success: true,
         message: "Comment deleted successfully",
-        newCommentsCount: newTotalCommentCount // Return the new count
+        newCommentsCount: newTotalCommentCount
       });
     } catch (error) {
       console.error('Error in deleteComment for announcement:', error);
-      next(error);
-    }
-  }
-
-  // New method to update a comment on an announcement
-  async updateComment(req: AuthRequest, res: Response, next: NextFunction) {
-    try {
-      const { commentId } = req.params;
-      const { content } = req.body;
-      const userId = req.user?.userId;
-      
-      if (!userId) {
-        return res.status(401).json({ success: false, message: "Authentication required" });
-      }
-
-      const commentRepository = new CommentRepository();
-      const existingComment = await commentRepository.findById(commentId);
-      
-      if (!existingComment) {
-        return res.status(404).json({ success: false, message: "Comment not found" });
-      }
-
-      if (existingComment.userId !== userId) {
-        return res.status(403).json({ success: false, message: "You can only edit your own comments" });
-      }
-
-      existingComment.content = content.trim();
-      existingComment.updatedAt = new Date();
-
-      const updatedComment = await commentRepository.update(existingComment);
-
-      res.status(200).json({
-        success: true,
-        message: "Comment updated successfully",
-        data: updatedComment,
-      });
-      
-    } catch (error) {
-      console.error('Error in updateComment for announcement:', error);
       next(error);
     }
   }

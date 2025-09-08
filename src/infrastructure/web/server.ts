@@ -18,6 +18,7 @@ import { sessionRouter } from './routes/session.routes';
 import { subscriptionRouter } from './routes/subscription.routes';
 import { dashboardRouter } from './routes/dashboard.routes';
 import { publicProfileRouter } from './routes/publicProfile.routes'; // Add this import
+import { feedbackRouter } from './routes/feedback.routes';
 
 import { setupSwagger } from './swagger/swagger.setup';
 import { activityRouter } from './routes/activity.routes';
@@ -91,6 +92,7 @@ export class Server {
     this.app.use('/api/activities', activityRouter);
     this.app.use('/api/announcements', announcementRouter);
     this.app.use('/api/videos', videoRouter);
+    this.app.use('/api/feedback', feedbackRouter)
 
     // Health check
     this.app.get('/', (_, res) => {

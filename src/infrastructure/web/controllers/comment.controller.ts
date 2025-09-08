@@ -9,47 +9,128 @@ import { PostRepository } from "../../database/repositories/PostRepository";
 
 export class CommentController {
   async getCommentsByPost(req: AuthRequest, res: Response, next: NextFunction) {
-    try {
-      const { postId } = req.params;
-      const { page = 1, limit = 20, includeReplies = true } = req.query;
+  try {
+    const { postId } = req.params;
+    const { page = 1, limit = 20, includeReplies = true } = req.query;
 
-      console.log('Getting comments for post:', postId, { page, limit, includeReplies });
+    console.log('Getting comments for post:', postId, { page, limit, includeReplies });
 
-      const getCommentsUseCase = new GetCommentsUseCase(
-        new CommentRepository(),
-        new UserRepository(),
-        new ProfileRepository()
+    const getCommentsUseCase = new GetCommentsUseCase(
+      new CommentRepository(),
+      new UserRepository(),
+      new ProfileRepository()
+    );
+
+    const result = await getCommentsUseCase.execute({
+      postId,
+      currentUserId: req.user?.userId,
+      page: Number(page),
+      limit: Number(limit),
+      includeReplies: String(includeReplies).toLowerCase() === 'true'
+    });
+
+    // Backend enhancement: Add metadata to help frontend handle editing states
+    const enhancedComments = result.comments.map(comment => ({
+      ...comment,
+      // Add server-side flags for better state management
+      canEdit: comment.author?.userId === req.user?.userId,
+      canDelete: comment.author?.userId === req.user?.userId || req.user?.role === 'ADMIN',
+      hasReplies: comment.replies && comment.replies.length > 0,
+      // Ensure replies are always included for parent comments
+      replies: comment.replies || []
+    }));
+
+    // Get the total count of ALL comments (including replies) for accurate count
+    const commentRepository = new CommentRepository();
+    const totalCommentsIncludingReplies = await commentRepository.countByPost(postId);
+
+    console.log('Comments result:', result);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        comments: enhancedComments,
+        pagination: {
+          total: result.total,
+          totalWithReplies: totalCommentsIncludingReplies,
+          page: result.page,
+          limit: Number(limit),
+          totalPages: result.totalPages,
+          hasNextPage: result.page < result.totalPages,
+          hasPrevPage: result.page > 1
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Error in getCommentsByPost:', error);
+    next(error);
+  }
+}
+
+async getCommentWithReplies(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const { commentId } = req.params;
+
+    const commentRepository = new CommentRepository();
+    const userRepository = new UserRepository();
+    const profileRepository = new ProfileRepository();
+
+    const comment = await commentRepository.findById(commentId);
+
+    if (!comment) {
+      res.status(404).json({
+        success: false,
+        message: "Comment not found"
+      });
+      return;
+    }
+
+    // Enrich with author information
+    const user = await userRepository.findById(comment.userId);
+    const profile = await profileRepository.findByUserId(comment.userId);
+
+    comment.author = {
+      userId: comment.userId,
+      name: profile?.name || user?.email?.split('@')[0] || 'Unknown User',
+      email: user?.email || '',
+      avatar: profile?.profilePhoto || '',
+      level: profile?.level || 1,
+    };
+
+    // Always fetch replies for parent comments
+    if (!comment.parentCommentId) {
+      const replies = await commentRepository.findReplies(commentId);
+      
+      const enrichedReplies = await Promise.all(
+        replies.map(async (reply) => {
+          const replyUser = await userRepository.findById(reply.userId);
+          const replyProfile = await profileRepository.findByUserId(reply.userId);
+
+          reply.author = {
+            userId: reply.userId,
+            name: replyProfile?.name || replyUser?.email?.split('@')[0] || 'Unknown User',
+            email: replyUser?.email || '',
+            avatar: replyProfile?.profilePhoto || '',
+            level: replyProfile?.level || 1,
+          };
+
+          return reply;
+        })
       );
 
-      const result = await getCommentsUseCase.execute({
-        postId,
-        currentUserId: req.user?.userId,
-        page: Number(page),
-        limit: Number(limit),
-        includeReplies: String(includeReplies).toLowerCase() === 'true'
-      });
-
-      console.log('Comments result:', result);
-
-      res.status(200).json({
-        success: true,
-        data: {
-          comments: result.comments,
-          pagination: {
-            total: result.total,
-            page: result.page,
-            limit: Number(limit),
-            totalPages: result.totalPages,
-            hasNextPage: result.page < result.totalPages,
-            hasPrevPage: result.page > 1
-          }
-        }
-      });
-    } catch (error) {
-      console.error('Error in getCommentsByPost:', error);
-      next(error);
+      comment.replies = enrichedReplies;
     }
+
+    res.status(200).json({
+      success: true,
+      data: comment
+    });
+  } catch (error) {
+    console.error('Error in getCommentWithReplies:', error);
+    next(error);
   }
+}
+
 
   async createComment(req: AuthRequest, res: Response, next: NextFunction) {
     try {
