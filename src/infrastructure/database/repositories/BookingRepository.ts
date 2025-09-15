@@ -42,14 +42,13 @@ export class BookingRepository implements IBookingRepository {
   // FIXED: Only return confirmed bookings for future sessions
   async findActiveByUserId(userId: string): Promise<Booking[]> {
     const currentTime = new Date();
-    
+
     const entities = await this.repository
       .createQueryBuilder('booking')
       .innerJoin(SessionEntity, 'session', 'session.id = booking.sessionId')
       .where('booking.userId = :userId', { userId })
       .andWhere('booking.status = :status', { status: 'CONFIRMED' })
-      .andWhere('session.scheduledAt > :currentTime', { currentTime })
-      .orderBy('booking.createdAt', 'DESC')
+      .andWhere('session.scheduledAt + (session.duration * INTERVAL \'1 minute\') > :currentTime', { currentTime }).orderBy('booking.createdAt', 'DESC')
       .getMany();
 
     return entities.map(e => this.toDomain(e));
@@ -69,7 +68,7 @@ export class BookingRepository implements IBookingRepository {
   // NEW: Method to automatically update past session bookings to COMPLETED
   async updatePastBookingsToCompleted(): Promise<number> {
     const currentTime = new Date();
-    
+
     const result = await this.repository
       .createQueryBuilder('booking')
       .update(BookingEntity)
@@ -81,7 +80,7 @@ export class BookingRepository implements IBookingRepository {
           .subQuery()
           .select('session.id')
           .from(SessionEntity, 'session')
-          .where('session.scheduledAt <= :currentTime', { currentTime })
+          .andWhere('session.scheduledAt + (session.duration * INTERVAL \'1 minute\') > :currentTime', { currentTime }).orderBy('booking.createdAt', 'DESC')
           .getQuery()
       )
       .execute();
@@ -92,13 +91,13 @@ export class BookingRepository implements IBookingRepository {
   // NEW: Method to get upcoming bookings with session details
   async findUpcomingByUserId(userId: string): Promise<Booking[]> {
     const currentTime = new Date();
-    
+
     const entities = await this.repository
       .createQueryBuilder('booking')
       .innerJoin(SessionEntity, 'session', 'session.id = booking.sessionId')
       .where('booking.userId = :userId', { userId })
       .andWhere('booking.status = :status', { status: 'CONFIRMED' })
-      .andWhere('session.scheduledAt > :currentTime', { currentTime })
+      .andWhere('session.scheduledAt + (session.duration * INTERVAL \'1 minute\') > :currentTime', { currentTime }).orderBy('booking.createdAt', 'DESC')
       .orderBy('session.scheduledAt', 'ASC')
       .getMany();
 

@@ -117,6 +117,10 @@ export class CalendarController {
         },
       };
 
+      const sessionStartTime = new Date(session.scheduledAt);
+      const sessionEndTime = new Date(sessionStartTime.getTime() + session.duration * 60000);
+      const isPast = sessionEndTime < new Date();
+
       // Check various conditions
       if (userBookings.find(b => b.sessionId === sessionId)) {
         eligibility.canBook = false;
@@ -138,7 +142,7 @@ export class CalendarController {
         eligibility.reasons.push(`Insufficient points (need ${session.pointsRequired}, have ${profile?.points || 0})`);
       }
 
-      if (new Date(session.scheduledAt) <= new Date()) {
+      if (isPast) {
         eligibility.canBook = false;
         eligibility.reasons.push('Session has already started');
       }
@@ -170,11 +174,11 @@ export class CalendarController {
             session,
           };
         })
-      );
+      )
 
       // Sort by session date and filter out past sessions
       const upcomingBookings = enhancedBookings
-        .filter(booking => booking.session && new Date(booking.session.scheduledAt) > new Date())
+        .filter(booking => booking.session && new Date(new Date(booking.session.scheduledAt).getTime() + booking.session.duration * 60000) > new Date())
         .sort((a, b) => {
           if (!a.session || !b.session) return 0;
           return new Date(a.session.scheduledAt).getTime() - new Date(b.session.scheduledAt).getTime();
