@@ -119,7 +119,12 @@ export class CalendarController {
 
       const sessionStartTime = new Date(session.scheduledAt);
       const sessionEndTime = new Date(sessionStartTime.getTime() + session.duration * 60000);
-      const isPast = sessionEndTime < new Date();
+      const now = new Date();
+      const isPast = sessionEndTime < now;
+
+      // Check if session is within 24 hours
+      const hoursUntilSession = (sessionStartTime.getTime() - now.getTime()) / (1000 * 60 * 60);
+      const isWithin24Hours = hoursUntilSession <= 24 && hoursUntilSession > 0;
 
       // Check various conditions
       if (userBookings.find(b => b.sessionId === sessionId)) {
@@ -145,6 +150,12 @@ export class CalendarController {
       if (isPast) {
         eligibility.canBook = false;
         eligibility.reasons.push('Session has already started');
+      }
+
+      // NEW: 24-hour advance booking requirement
+      if (isWithin24Hours && !isPast) {
+        eligibility.canBook = false;
+        eligibility.reasons.push('Sessions must be booked at least 24 hours in advance');
       }
 
       if (!session.isActive) {
