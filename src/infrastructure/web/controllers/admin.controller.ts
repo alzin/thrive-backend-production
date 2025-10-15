@@ -18,6 +18,7 @@ import { PaymentRepository } from '../../database/repositories/PaymentRepository
 import { CreateRecurringSessionUseCase } from '../../../application/use-cases/admin/CreateRecurringSessionUseCase';
 import { ActivityService } from '../../services/ActivityService';
 import { DeleteSessionUseCase } from '../../../application/use-cases/admin/DeleteSessionUseCase';
+import { SubscriptionRepository } from '../../database/repositories/SubscriptionRepository';
 
 export class AdminController {
   async getUsers(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
@@ -25,15 +26,20 @@ export class AdminController {
       const { page = 1, limit = 20 } = req.query;
       const userRepository = new UserRepository();
       const profileRepository = new ProfileRepository();
+      const subscriptionRepository = new SubscriptionRepository();
+
 
       const users = await userRepository.findAll();
       const profiles = await profileRepository.findAll();
+      const subscriptions = await subscriptionRepository.findAll();
 
       const usersWithProfiles = users.map(user => {
         const profile = profiles.find(p => p.userId === user.id);
+        const subscription = subscriptions.find(s => s.userId === user.id);
         return {
           ...user,
-          profile
+          profile,
+          subscriptionStatus: user.role === "ADMIN" ? "active" : subscription ? subscription.status : "No Subscription"
         };
       });
 
