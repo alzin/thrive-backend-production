@@ -114,6 +114,11 @@ export class SubscriptionRepository implements ISubscriptionRepository {
         return result.affected !== 0;
     }
 
+    async findAll(): Promise<Subscription[]> {
+        const entities = await this.repository.find();
+        return entities.map(entity => this.toDomain(entity));
+    }
+
     private toDomain(entity: SubscriptionEntity): Subscription {
         return new Subscription(
             entity.id,
