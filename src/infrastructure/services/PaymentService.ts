@@ -118,7 +118,10 @@ export class PaymentService implements IPaymentService {
 
   async retrieveCheckoutSession(sessionId: string): Promise<Stripe.Checkout.Session | null> {
     try {
-      const session = await this.stripe.checkout.sessions.retrieve(sessionId);
+      // We MUST expand line_items to see the price when the total paid is 0
+      const session = await this.stripe.checkout.sessions.retrieve(sessionId, {
+        expand: ['line_items', 'line_items.data.price'], 
+      });
       return session;
     } catch (error) {
       return null;
