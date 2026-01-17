@@ -143,10 +143,11 @@ export class PaymentController {
     }
   }
 
-  verifyCheckoutSession = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+verifyCheckoutSession = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const { sessionId } = req.body;
 
+      // 1. Retrieve Session (Now includes line_items)
       const session = await this.paymentService.retrieveCheckoutSession(sessionId);
 
       if (!session) {
@@ -154,10 +155,42 @@ export class PaymentController {
         return;
       }
 
+      const planType = session.metadata?.planType || 'unknown_plan';
+      const planName = `Thrive ${planType.charAt(0).toUpperCase() + planType.slice(1)} Subscription`;
+      const isTrial = session.total_details?.amount_tax === 0 && session.amount_total === 0;
+
+      // -------------------------------------------------------
+      // LOGIC: DETERMINE REAL VALUE
+      // -------------------------------------------------------
+      let finalValue = session.amount_total || 0;
+
+      // If Stripe says 0 (Trial/Free), we look up the real price
+      if (finalValue === 0) {
+        
+        // Strategy A: Dynamic lookup from Stripe Line Items
+        // This will now work because we updated PaymentService!
+        if (session.line_items?.data?.[0]?.price?.unit_amount) {
+          finalValue = session.line_items.data[0].price.unit_amount;
+        } 
+    
+      }
+      // -------------------------------------------------------
+
       res.json({
         status: session.payment_status,
         paymentIntentId: session.payment_intent,
         metadata: session.metadata,
+        transactionDetails: {
+          transactionId: session.id,
+          name: planName,
+          value: finalValue, // ✅ Now sends 8800 instead of 0
+          currency: session.currency?.toUpperCase() || 'JPY',
+          plan: planType,
+          subscriptionId: session.subscription as string || 'sub_pending',
+          customerId: session.customer as string || 'cus_guest',
+          isTrial: isTrial,
+          interval: session.metadata?.interval || 'monthly'
+        }
       });
     } catch (error) {
       next(error);
