@@ -120,12 +120,74 @@ export class PaymentService implements IPaymentService {
     try {
       // We MUST expand line_items to see the price when the total paid is 0
       const session = await this.stripe.checkout.sessions.retrieve(sessionId, {
-        expand: ['line_items', 'line_items.data.price'], 
+        expand: ['line_items', 'line_items.data.price'],
       });
       return session;
     } catch (error) {
       return null;
     }
+  }
+
+  // --- NEW METHOD FOR SUCCESS PAGE VERIFICATION ---
+  async verifyCheckoutSession(sessionId: string) {
+    // 1. Retrieve session AND expand subscription to check trial status
+    const session = await this.stripe.checkout.sessions.retrieve(sessionId, {
+      expand: ['subscription', 'line_items', 'payment_intent'],
+    });
+
+    if (!session) {
+      throw new Error('Session not found');
+    }
+
+    let isTrial = false;
+    let planInterval = 'month';
+    let planName = 'Subscription';
+
+    // 2. LOGIC: Determine if it is a Trial
+    if (session.subscription && typeof session.subscription !== 'string') {
+      // Check if status is 'trialing' OR if there is a trial_end date in the future
+      if (
+        session.subscription.status === 'trialing' ||
+        (session.subscription.trial_end && session.subscription.trial_end > Date.now() / 1000)
+      ) {
+        isTrial = true;
+      }
+
+      // Get Plan details
+      const item = session.subscription.items.data[0];
+      if (item && item.price) {
+        planInterval = item.price.recurring?.interval || 'month';
+      }
+    }
+
+    // 3. Return the payload matching your Frontend Interface
+    return {
+      status: session.payment_status, // 'paid' or 'unpaid'
+      customerEmail: session.customer_details?.email,
+      transactionDetails: {
+        transactionId: session.id,
+        // IMPORTANT: Send raw amount_total (e.g., 2000 for $20). 
+        // The frontend will handle the division.
+        value: session.amount_total || 0,
+        currency: session.currency?.toUpperCase() || 'USD',
+
+        // Subscription Details
+        plan: session.metadata?.plan || 'unknown_plan',
+        name: planName,
+        interval: planInterval,
+
+        // The calculated boolean
+        isTrial: isTrial,
+
+        subscriptionId: typeof session.subscription === 'string'
+          ? session.subscription
+          : session.subscription?.id,
+        customerId: typeof session.customer === 'string'
+          ? session.customer
+          : session.customer?.id,
+      },
+      metadata: session.metadata
+    };
   }
 
   constructWebhookEvent(payload: string, signature: string): Stripe.Event {
@@ -196,7 +258,5 @@ export class PaymentService implements IPaymentService {
       return null;
     }
   }
-
-
 
 }
