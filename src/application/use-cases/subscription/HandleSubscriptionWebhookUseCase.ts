@@ -328,7 +328,6 @@ export class HandleSubscriptionWebhookUseCase {
         const priceMappings: Record<string, SubscriptionPlan> = {
             [ENV_CONFIG.STRIPE_MONTHLY_PRICE_ID || '']: 'monthly',
             [ENV_CONFIG.STRIPE_YEARLY_PRICE_ID || '']: 'yearly',
-            [ENV_CONFIG.STRIPE_ONE_TIME_PRICE_ID || '']: 'one-time',
             [ENV_CONFIG.STRIPE_STANDARD_PRICE_ID || '']: 'standard',
             [ENV_CONFIG.STRIPE_PREMIUM_PRICE_ID || '']: 'premium',
             [ENV_CONFIG.STRIPE_MONTHLY_DISCOUNT_PRICE_ID || '']: 'monthly',
