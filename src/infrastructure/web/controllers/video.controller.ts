@@ -1,46 +1,34 @@
-// backend/src/infrastructure/web/controllers/video.controller.ts
+// backend/src/infrastructure/web/controllers/video.controller.ts - Updated with Dependency Injection
 import { Request, Response, NextFunction } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
-import { CreateOrUpdateVideoUseCase } from '../../../application/use-cases/video/CreateOrUpdateVideoUseCase';
-import { DeleteVideoUseCase } from '../../../application/use-cases/video/DeleteVideoUseCase';
-import { VideoRepository } from '../../database/repositories/VideoRepository';
-import { UserRepository } from '../../database/repositories/UserRepository';
 import { VideoType } from '../../../domain/entities/Video';
-import { MarkTourVideoViewedUseCase } from '../../../application/use-cases/video/MarkTourVideoViewedUseCase';
+
+// Use Cases
+import { CreateOrUpdateVideoUseCase } from '../../../application/use-cases/video/CreateOrUpdateVideoUseCase';
 import { GetVideoUseCase } from '../../../application/use-cases/video/GetVideosUseCase';
+import { DeleteVideoUseCase } from '../../../application/use-cases/video/DeleteVideoUseCase';
 import { CheckTourVideoStatusUseCase } from '../../../application/use-cases/video/CheckTourVideoStatusUseCase';
+import { MarkTourVideoViewedUseCase } from '../../../application/use-cases/video/MarkTourVideoViewedUseCase';
 
 export class VideoController {
-  private createOrUpdateVideoUseCase: CreateOrUpdateVideoUseCase;
-  private getVideoUseCase: GetVideoUseCase;
-  private deleteVideoUseCase: DeleteVideoUseCase;
-  private markTourVideoViewedUseCase: MarkTourVideoViewedUseCase;
-  private checkTourVideoStatusUseCase: CheckTourVideoStatusUseCase;
+  constructor(
+    private createOrUpdateVideoUseCase: CreateOrUpdateVideoUseCase,
+    private getVideoUseCase: GetVideoUseCase,
+    private deleteVideoUseCase: DeleteVideoUseCase,
+    private checkTourVideoStatusUseCase: CheckTourVideoStatusUseCase,
+    private markTourVideoViewedUseCase: MarkTourVideoViewedUseCase,
+  ) { }
 
-  constructor() {
-    const videoRepository = new VideoRepository();
-    const userRepository = new UserRepository();
-
-    this.createOrUpdateVideoUseCase = new CreateOrUpdateVideoUseCase(videoRepository, userRepository);
-    this.getVideoUseCase = new GetVideoUseCase(videoRepository);
-    this.deleteVideoUseCase = new DeleteVideoUseCase(videoRepository, userRepository);
-    this.markTourVideoViewedUseCase = new MarkTourVideoViewedUseCase(userRepository);
-    this.checkTourVideoStatusUseCase = new CheckTourVideoStatusUseCase(userRepository);
-  }
-
-  // Admin: Create or Update the single tour video
   async createOrUpdateVideo(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { title, description, videoUrl, videoType, thumbnailUrl, duration, isActive } = req.body;
+      const { description, videoUrl, videoType, thumbnailUrl, isActive } = req.body;
 
       const video = await this.createOrUpdateVideoUseCase.execute({
         userId: req.user!.userId,
-        // title,
         description,
         videoUrl,
         videoType: videoType as VideoType,
         thumbnailUrl,
-        // duration: duration ? parseInt(duration) : undefined,
         isActive
       });
 
@@ -54,7 +42,6 @@ export class VideoController {
     }
   }
 
-  // Admin: Get the current video
   async getVideo(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const video = await this.getVideoUseCase.execute();
@@ -68,7 +55,6 @@ export class VideoController {
     }
   }
 
-  // Admin: Delete the video
   async deleteVideo(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const success = await this.deleteVideoUseCase.execute({
@@ -91,7 +77,6 @@ export class VideoController {
     }
   }
 
-  // 🎯 FIRST-TIME LOGIN: Get active tour video for students
   async getTourVideo(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const video = await this.getVideoUseCase.execute();
@@ -114,7 +99,6 @@ export class VideoController {
     }
   }
 
-  // 🎯 FIRST-TIME LOGIN: Check if user should see auto-tour
   async getTourVideoStatus(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const status = await this.checkTourVideoStatusUseCase.execute({
@@ -130,7 +114,6 @@ export class VideoController {
     }
   }
 
-  // 🎯 FIRST-TIME LOGIN: Mark tour as viewed (stops future auto-shows)
   async markTourVideoViewed(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       await this.markTourVideoViewedUseCase.execute({
@@ -146,7 +129,6 @@ export class VideoController {
     }
   }
 
-  // Check if any video exists
   async videoExists(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const exists = await this.getVideoUseCase.exists();

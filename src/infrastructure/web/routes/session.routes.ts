@@ -2,22 +2,26 @@ import { Router } from 'express';
 import { SessionController } from '../controllers/session.controller';
 import { authenticate } from '../middleware/auth.middleware';
 
-const router = Router();
-const sessionController = new SessionController();
+const sessionRouter = (sessionController: SessionController): Router => {
+    const router = Router();
 
-// All session routes require authentication
-router.use(authenticate);
 
-// Get upcoming sessions
-router.get('/upcoming', sessionController.getUpcomingSessions);
+    // All session routes require authentication
+    router.use(authenticate);
 
-// Get all sessions with pagination
-router.get('/', sessionController.getAllSessions);
+    // Get upcoming sessions
+    router.get('/upcoming', sessionController.getUpcomingSessions.bind(sessionController));
 
-// Get session by ID
-router.get('/:sessionId', sessionController.getSessionById);
+    // Get all sessions with pagination
+    router.get('/', sessionController.getAllSessions.bind(sessionController));
 
-// Get sessions by date range
-router.get('/range', sessionController.getSessionsByDateRange);
+    // Get session by ID
+    router.get('/:sessionId', sessionController.getSessionById.bind(sessionController));
 
-export { router as sessionRouter };
+    // Get sessions by date range
+    router.get('/range', sessionController.getSessionsByDateRange.bind(sessionController));
+
+    return router;
+};
+
+export default sessionRouter;

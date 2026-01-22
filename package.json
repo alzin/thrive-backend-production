@@ -53,6 +53,7 @@
     "nodemailer": "^7.0.3",
     "pg": "^8.16.2",
     "reflect-metadata": "^0.2.2",
+    "resend": "^6.8.0",
     "stripe": "^18.2.1",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",

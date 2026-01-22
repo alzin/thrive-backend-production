@@ -104,6 +104,24 @@ export class BookingRepository implements IBookingRepository {
     return entities.map(e => this.toDomain(e));
   }
 
+    // Count confirmed standard session bookings for a user in a specific month
+  async countMonthlyStandardSessionBookings(userId: string, year: number, month: number): Promise<number> {
+    const startOfMonth = new Date(year, month - 1, 1);
+    const endOfMonth = new Date(year, month, 0, 23, 59, 59, 999);
+
+    const count = await this.repository
+      .createQueryBuilder('booking')
+      .innerJoin(SessionEntity, 'session', 'session.id = booking.sessionId')
+      .where('booking.userId = :userId', { userId })
+      .andWhere('booking.status IN (:...statuses)', { statuses: ['CONFIRMED', 'COMPLETED'] })
+      .andWhere('session.type = :sessionType', { sessionType: 'STANDARD' })
+      .andWhere('booking.createdAt >= :startOfMonth', { startOfMonth })
+      .andWhere('booking.createdAt <= :endOfMonth', { endOfMonth })
+      .getCount();
+
+    return count;
+  }
+
   private toDomain(entity: BookingEntity): Booking {
     return {
       id: entity.id,

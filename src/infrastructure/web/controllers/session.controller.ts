@@ -1,33 +1,27 @@
 import { Response, NextFunction } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
-import { SessionRepository } from '../../database/repositories/SessionRepository';
-import { UserRepository } from '../../database/repositories/UserRepository';
-import { ProfileRepository } from '../../database/repositories/ProfileRepository';
+
+// Use Cases
+import { GetUpcomingSessionsUseCase } from '../../../application/use-cases/session/GetUpcomingSessionsUseCase';
+import { GetSessionByIdUseCase } from '../../../application/use-cases/session/GetSessionByIdUseCase';
+import { GetSessionsByDateRangeUseCase } from '../../../application/use-cases/session/GetSessionsByDateRangeUseCase';
+import { GetAllSessionsUseCase } from '../../../application/use-cases/session/GetAllSessionsUseCase';
 
 export class SessionController {
+  constructor(
+    private getUpcomingSessionsUseCase: GetUpcomingSessionsUseCase,
+    private getSessionByIdUseCase: GetSessionByIdUseCase,
+    private getSessionsByDateRangeUseCase: GetSessionsByDateRangeUseCase,
+    private getAllSessionsUseCase: GetAllSessionsUseCase
+  ) { }
+
   async getUpcomingSessions(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { limit = 10 } = req.query;
-      const sessionRepository = new SessionRepository();
+      const { limit } = req.query;
 
-      const sessions = await sessionRepository.findUpcoming(Number(limit));
-
-      // Enhance sessions with host information
-      const userRepository = new UserRepository();
-      const profileRepository = new ProfileRepository();
-
-      const enhancedSessions = await Promise.all(
-        sessions.map(async (session) => {
-          const host = await userRepository.findById(session.hostId);
-          const hostProfile = await profileRepository.findByUserId(session.hostId);
-
-          return {
-            ...session,
-            hostName: hostProfile?.name || host?.email || 'Unknown Host',
-            hostEmail: host?.email,
-          };
-        })
-      );
+      const enhancedSessions = await this.getUpcomingSessionsUseCase.execute({
+        limit: limit ? Number(limit) : undefined
+      });
 
       res.json(enhancedSessions);
     } catch (error) {
@@ -38,27 +32,15 @@ export class SessionController {
   async getSessionById(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { sessionId } = req.params;
-      const sessionRepository = new SessionRepository();
 
-      const session = await sessionRepository.findById(sessionId);
-      if (!session) {
-        res.status(404).json({ error: 'Session not found' });
+      const session = await this.getSessionByIdUseCase.execute({ sessionId });
+
+      res.json(session);
+    } catch (error) {
+      if (error instanceof Error && error.message === 'Session not found') {
+        res.status(404).json({ error: error.message });
         return;
       }
-
-      // Enhance with host information
-      const userRepository = new UserRepository();
-      const profileRepository = new ProfileRepository();
-
-      const host = await userRepository.findById(session.hostId);
-      const hostProfile = await profileRepository.findByUserId(session.hostId);
-
-      res.json({
-        ...session,
-        hostName: hostProfile?.name || host?.email || 'Unknown Host',
-        hostEmail: host?.email,
-      });
-    } catch (error) {
       next(error);
     }
   }
@@ -67,76 +49,33 @@ export class SessionController {
     try {
       const { startDate, endDate } = req.query;
 
-      if (!startDate || !endDate) {
-        res.status(400).json({ error: 'Start date and end date are required' });
-        return;
-      }
-
-      const sessionRepository = new SessionRepository();
-      const sessions = await sessionRepository.findByDateRange(
-        new Date(String(startDate)),
-        new Date(String(endDate))
-      );
+      const sessions = await this.getSessionsByDateRangeUseCase.execute({
+        startDate: String(startDate),
+        endDate: String(endDate)
+      });
 
       res.json(sessions);
     } catch (error) {
+      if (error instanceof Error && error.message === 'Start date and end date are required') {
+        res.status(400).json({ error: error.message });
+        return;
+      }
       next(error);
     }
   }
 
   async getAllSessions(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { page = 1, limit = 20, type, isActive } = req.query;
-      const sessionRepository = new SessionRepository();
+      const { page, limit, type, isActive } = req.query;
 
-      // Convert query params to appropriate types
-      const pageNum = Number(page);
-      const limitNum = Number(limit);
-      const offset = (pageNum - 1) * limitNum;
-
-      // Build filter conditions
-      const filters: any = {};
-
-      if (type && (type === 'SPEAKING' || type === 'EVENT')) {
-        filters.type = type;
-      }
-
-      if (isActive !== undefined) {
-        filters.isActive = isActive === 'true';
-      }
-
-      // Get sessions with pagination and filters
-      const { sessions, total } = await sessionRepository.findAllWithPagination({
-        offset,
-        limit: limitNum,
-        filters
+      const result = await this.getAllSessionsUseCase.execute({
+        page: page ? Number(page) : undefined,
+        limit: limit ? Number(limit) : undefined,
+        type: type ? String(type) : undefined,
+        isActive: isActive !== undefined ? isActive === 'true' : undefined
       });
 
-      // Enhance sessions with host information
-      const userRepository = new UserRepository();
-      const profileRepository = new ProfileRepository();
-
-      const enhancedSessions = await Promise.all(
-        sessions.map(async (session) => {
-          const host = await userRepository.findById(session.hostId);
-          const hostProfile = await profileRepository.findByUserId(session.hostId);
-
-          return {
-            ...session,
-            hostName: hostProfile?.name || host?.email || 'Unknown Host',
-            hostEmail: host?.email,
-          };
-        })
-      );
-
-      res.json({
-        sessions: enhancedSessions,
-        total,
-        page: pageNum,
-        totalPages: Math.ceil(total / limitNum),
-        hasNextPage: pageNum * limitNum < total,
-        hasPrevPage: pageNum > 1,
-      });
+      res.json(result);
     } catch (error) {
       next(error);
     }

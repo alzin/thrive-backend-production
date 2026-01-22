@@ -1,7 +1,6 @@
 // backend/src/application/use-cases/auth/ResendVerificationCodeUseCase.ts
 import { IUserRepository } from '../../../domain/repositories/IUserRepository';
-import { IEmailService } from '../../services/IEmailService';
-
+import { IEmailService } from '../../../domain/services/IEmailService';
 export interface ResendVerificationCodeDTO {
     email: string;
 }

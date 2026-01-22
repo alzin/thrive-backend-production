@@ -1,8 +1,7 @@
 // backend/src/application/use-cases/auth/RefreshTokenUseCase.ts
 import { IUserRepository } from '../../../domain/repositories/IUserRepository';
-import { ITokenService } from '../../services/ITokenService';
+import { ITokenService } from '../../../domain/services/ITokenService';
 import { AuthenticationError } from '../../../domain/errors/AuthenticationError';
-import { RefreshToken } from '../../../domain/entities/RefreshToken';
 
 export interface RefreshTokenDTO {
     refreshToken: string;

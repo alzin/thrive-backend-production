@@ -1,11 +1,8 @@
 import 'reflect-metadata';
-import * as dotenv from 'dotenv';
-import { AppDataSource } from './infrastructure/database/config/database.config';
+
 import { Server } from './infrastructure/web/server';
-
-dotenv.config();
-
-const PORT = parseInt(process.env.PORT || '5000', 10);
+import { ENV_CONFIG } from './infrastructure/config/env.config';
+import { AppDataSource } from './infrastructure/database/config/database.config';
 
 async function bootstrap() {
   try {
@@ -14,7 +11,7 @@ async function bootstrap() {
     console.log('Database connected successfully');
 
     // Start server
-    const server = new Server(PORT);
+    const server = new Server(ENV_CONFIG.PORT);
     await server.start();
   } catch (error) {
     console.error('Failed to start application:', error);

@@ -1,5 +1,5 @@
 // backend/src/domain/repositories/IAnnouncementRepository.ts
-import { ICommentableRepository } from '../../infrastructure/database/repositories/ICommentableRepository';
+import { ICommentableRepository } from './ICommentableRepository';
 import { Announcement } from '../entities/Announcement';
 
 

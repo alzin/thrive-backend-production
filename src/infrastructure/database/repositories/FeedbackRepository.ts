@@ -8,7 +8,7 @@ import { CommentEntity } from '../entities/Comment.entity';
 import { IFeedbackRepository } from '../../../domain/repositories/IFeedbackRepository';
 import { Feedback, IAuthor } from '../../../domain/entities/Feedback';
 import { FeedbackLikeRepository } from './FeedbackLikeRepository';
-import { ICommentableRepository } from './ICommentableRepository';
+import { ICommentableRepository } from '../../../domain/repositories/ICommentableRepository';
 
 export class FeedbackRepository implements IFeedbackRepository, ICommentableRepository {
   private repository: Repository<FeedbackEntity>;

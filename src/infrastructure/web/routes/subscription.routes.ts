@@ -3,11 +3,18 @@ import { Router } from 'express';
 import { SubscriptionController } from '../controllers/subscription.controller';
 import { authenticate } from '../middleware/auth.middleware';
 
-const router = Router();
-const subscriptionController = new SubscriptionController();
+const subscriptionRouter = (subscriptionController: SubscriptionController): Router => {
+    const router = Router();
 
-router.use(authenticate);
+    router.use(authenticate);
 
-router.get('/check', subscriptionController.checkSubscription);
+    router.get('/check', subscriptionController.checkSubscription.bind(subscriptionController));
 
-export { router as subscriptionRouter };
+    return router;
+};
+
+export default subscriptionRouter;
+
+
+
+

@@ -1,55 +1,34 @@
+// backend/src/infrastructure/web/controllers/calendar.controller.ts
 import { Response, NextFunction } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
-import { SessionRepository } from '../../database/repositories/SessionRepository';
-import { BookingRepository } from '../../database/repositories/BookingRepository';
-import { ProfileRepository } from '../../database/repositories/ProfileRepository';
-import { startOfMonth, endOfMonth, startOfWeek, endOfWeek } from 'date-fns';
+import { GetCalendarSessionsUseCase } from '../../../application/use-cases/calendar/GetCalendarSessionsUseCase';
+import { GetSessionsByDayUseCase } from '../../../application/use-cases/calendar/GetSessionsByDayUseCase';
+import { CheckBookingEligibilityUseCase } from '../../../application/use-cases/calendar/CheckBookingEligibilityUseCase';
+import { GetUpcomingBookingsUseCase } from '../../../application/use-cases/calendar/GetUpcomingBookingsUseCase';
+import { GetSessionAttendeesUseCase } from '../../../application/use-cases/calendar/GetSessionAttendeesUseCase';
 
 export class CalendarController {
+  constructor(
+    private getCalendarSessionsUseCase: GetCalendarSessionsUseCase,
+    private getSessionsByDayUseCase: GetSessionsByDayUseCase,
+    private checkBookingEligibilityUseCase: CheckBookingEligibilityUseCase,
+    private getUpcomingBookingsUseCase: GetUpcomingBookingsUseCase,
+    private getSessionAttendeesUseCase: GetSessionAttendeesUseCase
+  ) { }
+
   async getCalendarSessions(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { year, month, view = 'month' } = req.query;
+      const { year, month, view = 'month', week } = req.query;
 
-      let startDate: Date;
-      let endDate: Date;
-
-      if (view === 'month' && year && month) {
-        const date = new Date(Number(year), Number(month) - 1);
-        startDate = startOfMonth(date);
-        endDate = endOfMonth(date);
-      } else if (view === 'week') {
-        const { week } = req.query;
-        const date = week ? new Date(String(week)) : new Date();
-        startDate = startOfWeek(date);
-        endDate = endOfWeek(date);
-      } else {
-        // Default to current month
-        startDate = startOfMonth(new Date());
-        endDate = endOfMonth(new Date());
-      }
-
-      const sessionRepository = new SessionRepository();
-      const bookingRepository = new BookingRepository();
-
-      // Get active sessions in date range
-      const sessions = await sessionRepository.findByDateRange(startDate, endDate);
-
-      // Get user's bookings
-      const userBookings = await bookingRepository.findActiveByUserId(req.user!.userId);
-      const bookedSessionIds = userBookings.map(b => b.sessionId);
-
-      // Enhance sessions with booking status
-      const enhancedSessions = sessions.map(session => ({
-        ...session,
-        isBooked: bookedSessionIds.includes(session.id),
-        canBook: session.canBook() && userBookings.length < 2 && !bookedSessionIds.includes(session.id),
-      }));
-
-      res.json({
-        sessions: enhancedSessions,
-        dateRange: { start: startDate, end: endDate },
-        userBookingCount: userBookings.length,
+      const result = await this.getCalendarSessionsUseCase.execute({
+        year: year as string,
+        month: month as string,
+        view: view as string,
+        week: week as string,
+        userId: req.user!.userId
       });
+
+      res.json(result);
     } catch (error) {
       next(error);
     }
@@ -58,28 +37,13 @@ export class CalendarController {
   async getSessionsByDay(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { date } = req.params;
-      const targetDate = new Date(date);
 
-      const sessionRepository = new SessionRepository();
-      const bookingRepository = new BookingRepository();
+      const result = await this.getSessionsByDayUseCase.execute({
+        date,
+        userId: req.user!.userId
+      });
 
-      // Get sessions for specific day
-      const startOfDay = new Date(targetDate.setHours(0, 0, 0, 0));
-      const endOfDay = new Date(targetDate.setHours(23, 59, 59, 999));
-
-      const sessions = await sessionRepository.findByDateRange(startOfDay, endOfDay);
-
-      // Get user's bookings
-      const userBookings = await bookingRepository.findActiveByUserId(req.user!.userId);
-      const bookedSessionIds = userBookings.map(b => b.sessionId);
-
-      const enhancedSessions = sessions.map(session => ({
-        ...session,
-        isBooked: bookedSessionIds.includes(session.id),
-        participantsList: [], // In production, you'd fetch actual participants
-      }));
-
-      res.json(enhancedSessions);
+      res.json(result);
     } catch (error) {
       next(error);
     }
@@ -89,111 +53,26 @@ export class CalendarController {
     try {
       const { sessionId } = req.params;
 
-      const sessionRepository = new SessionRepository();
-      const bookingRepository = new BookingRepository();
-      const profileRepository = new ProfileRepository();
-
-      const session = await sessionRepository.findById(sessionId);
-      if (!session) {
-        res.status(404).json({ error: 'Session not found' });
-        return;
-      }
-
-      const userBookings = await bookingRepository.findActiveByUserId(req.user!.userId);
-      const profile = await profileRepository.findByUserId(req.user!.userId);
-
-      const eligibility = {
-        canBook: true,
-        reasons: [] as string[],
-        session: {
-          id: session.id,
-          title: session.title,
-          pointsRequired: session.pointsRequired,
-          spotsAvailable: session.maxParticipants - session.currentParticipants,
-        },
-        user: {
-          points: profile?.points || 0,
-          activeBookings: userBookings.length,
-        },
-      };
-
-      const sessionStartTime = new Date(session.scheduledAt);
-      const sessionEndTime = new Date(sessionStartTime.getTime() + session.duration * 60000);
-      const now = new Date();
-      const isPast = sessionEndTime < now;
-
-      // Check if session is within 24 hours
-      const hoursUntilSession = (sessionStartTime.getTime() - now.getTime()) / (1000 * 60 * 60);
-      const isWithin24Hours = hoursUntilSession <= 24 && hoursUntilSession > 0;
-
-      // Check various conditions
-      if (userBookings.find(b => b.sessionId === sessionId)) {
-        eligibility.canBook = false;
-        eligibility.reasons.push('Already booked this session');
-      }
-
-      if (userBookings.length >= 2) {
-        eligibility.canBook = false;
-        eligibility.reasons.push('Maximum active bookings reached (2)');
-      }
-
-      if (session.isFull()) {
-        eligibility.canBook = false;
-        eligibility.reasons.push('Session is full');
-      }
-
-      if (session.pointsRequired > 0 && (!profile || profile.points < session.pointsRequired)) {
-        eligibility.canBook = false;
-        eligibility.reasons.push(`Insufficient points (need ${session.pointsRequired}, have ${profile?.points || 0})`);
-      }
-
-      if (isPast) {
-        eligibility.canBook = false;
-        eligibility.reasons.push('Session has already started');
-      }
-
-      // NEW: 24-hour advance booking requirement
-      if (isWithin24Hours && !isPast) {
-        eligibility.canBook = false;
-        eligibility.reasons.push('Sessions must be booked at least 24 hours in advance');
-      }
-
-      if (!session.isActive) {
-        eligibility.canBook = false;
-        eligibility.reasons.push('Session is not active');
-      }
+      const eligibility = await this.checkBookingEligibilityUseCase.execute({
+        sessionId,
+        userId: req.user!.userId
+      });
 
       res.json(eligibility);
     } catch (error) {
+      if (error instanceof Error && error.message === 'Session not found') {
+        res.status(404).json({ error: error.message });
+        return;
+      }
       next(error);
     }
   }
 
   async getUpcomingBookings(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
-      const bookingRepository = new BookingRepository();
-      const sessionRepository = new SessionRepository();
-
-      const bookings = await bookingRepository.findActiveByUserId(req.user!.userId);
-
-      // Enhance bookings with session details
-      const enhancedBookings = await Promise.all(
-        bookings.map(async (booking) => {
-          const session = await sessionRepository.findById(booking.sessionId);
-          return {
-            ...booking,
-            session,
-          };
-        })
-      )
-
-      // Sort by session date and filter out past sessions
-      const upcomingBookings = enhancedBookings
-        .filter(booking => booking.session && new Date(new Date(booking.session.scheduledAt).getTime() + booking.session.duration * 60000) > new Date())
-        .sort((a, b) => {
-          if (!a.session || !b.session) return 0;
-          return new Date(a.session.scheduledAt).getTime() - new Date(b.session.scheduledAt).getTime();
-        });
+      const upcomingBookings = await this.getUpcomingBookingsUseCase.execute({
+        userId: req.user!.userId
+      });
 
       res.json(upcomingBookings);
     } catch (error) {
@@ -204,26 +83,10 @@ export class CalendarController {
   async getSessionAttendees(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { sessionId } = req.params;
-      const bookingRepository = new BookingRepository();
-      const profileRepository = new ProfileRepository();
 
-      const bookings = await bookingRepository.findBySessionId(sessionId);
-
-      const attendees = await Promise.all(
-        bookings
-          .filter(b => b.status === 'CONFIRMED')
-          .map(async (booking) => {
-            const profile = await profileRepository.findByUserId(booking.userId);
-            return {
-              bookingId: booking.id,
-              userId: booking.userId,
-              name: profile?.name || 'Unknown',
-              profilePhoto: profile?.profilePhoto,
-              level: profile?.level || 1,
-              languageLevel: profile?.languageLevel || 'N5',
-            };
-          })
-      );
+      const attendees = await this.getSessionAttendeesUseCase.execute({
+        sessionId
+      });
 
       res.json(attendees);
     } catch (error) {

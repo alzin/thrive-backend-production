@@ -1,4 +1,4 @@
-import { IActivityService } from '../../application/services/IActivityService';
+import { IActivityService } from '../../domain/services/IActivityService';
 import { RecentActivity, ActivityType } from '../../domain/entities/RecentActivity';
 import { RecentActivityRepository } from '../database/repositories/RecentActivityRepository';
 

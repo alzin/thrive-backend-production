@@ -2,10 +2,15 @@
 import { Router } from 'express';
 import { PublicProfileController } from '../controllers/publicProfile.controller';
 
-const router = Router();
-const publicProfileController = new PublicProfileController();
+const publicProfileRouter = (publicProfileController: PublicProfileController): Router => {
+    const router = Router();
 
-// Public profile route - no authentication required
-router.get('/:userId', publicProfileController.getPublicProfile.bind(publicProfileController));
 
-export { router as publicProfileRouter };
+    // Public profile route - no authentication required
+    router.get('/:userId', publicProfileController.getPublicProfile.bind(publicProfileController));
+
+    return router;
+};
+
+export default publicProfileRouter;
+

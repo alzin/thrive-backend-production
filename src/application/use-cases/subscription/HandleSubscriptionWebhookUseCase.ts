@@ -4,6 +4,7 @@ import { ISubscriptionRepository } from '../../../domain/repositories/ISubscript
 import { Subscription, SubscriptionPlan, SubscriptionStatus } from '../../../domain/entities/Subscription';
 import { PaymentService } from '../../../infrastructure/services/PaymentService';
 import Stripe from 'stripe';
+import { ENV_CONFIG } from '../../../infrastructure/config/env.config';
 
 export interface HandleSubscriptionWebhookDTO {
     event: Stripe.Event;
@@ -54,9 +55,10 @@ export class HandleSubscriptionWebhookUseCase {
     }
 
     private async handleCheckoutSessionCompleted(session: Stripe.Checkout.Session): Promise<void> {
-
         const userId = session.metadata?.userId;
         const email = session.customer_email || session.metadata?.email;
+        const isUpgrade = session.metadata?.isUpgrade === 'true';
+        const previousSubscriptionId = session.metadata?.previousSubscriptionId;
 
         if (!userId || !email) {
             console.error('❌ Missing userId or email in session metadata');
@@ -70,12 +72,25 @@ export class HandleSubscriptionWebhookUseCase {
             return;
         }
 
+        // Handle upgrade scenario - cancel old subscription
+        if (isUpgrade && previousSubscriptionId) {
+            console.log(`📍 Processing upgrade: canceling previous subscription ${previousSubscriptionId}`);
+            try {
+                await this.paymentService.cancelSubscriptionImmediately(previousSubscriptionId);
+                console.log(`✅ Successfully canceled previous subscription`);
+            } catch (error: any) {
+                console.error(`⚠️ Failed to cancel previous subscription: ${error.message}`);
+                // Continue anyway - the new subscription is more important
+            }
+        }
+
         // Handle one-time payment (one-time plan)
         if (session.mode === 'payment') {
             await this.handleOneTimePayment(session, userId, email);
         }
-        // Subscription will be handled by customer.subscription.created event
+        // Subscription will be handled by customer.subscription.created/updated event
     }
+
 
     private async handleOneTimePayment(session: Stripe.Checkout.Session, userId: string, email: string): Promise<void> {
 
@@ -204,19 +219,35 @@ export class HandleSubscriptionWebhookUseCase {
             return;
         }
 
-        // Update subscription details
-        subscription.status = this.mapStripeStatusToSubscriptionStatus(stripeSubscription.status);
-        subscription.currentPeriodStart = new Date(stripeSubscription.items.data[0].current_period_start * 1000);
-        subscription.currentPeriodEnd = new Date(stripeSubscription.items.data[0].current_period_end * 1000);
-        subscription.updatedAt = new Date();
-
-        // Check if plan changed
+        // Get the new plan
         const newPlan = this.extractPlanFromSubscription(stripeSubscription);
+        const newStatus = this.mapStripeStatusToSubscriptionStatus(stripeSubscription.status);
+
+        // Log if this is a plan change (upgrade/downgrade)
         if (newPlan !== subscription.subscriptionPlan) {
-            subscription.subscriptionPlan = newPlan;
+            console.log(
+                `📍 Plan change detected: ${subscription.subscriptionPlan} → ${newPlan}`
+            );
         }
 
+        // Log if trial ended
+        if (subscription.status === 'trialing' && newStatus === 'active') {
+            console.log(`📍 Trial ended, subscription is now active`);
+        }
+
+        // Update subscription details
+        subscription.status = newStatus;
+        subscription.subscriptionPlan = newPlan;
+        subscription.currentPeriodStart = new Date(
+            stripeSubscription.items.data[0].current_period_start * 1000
+        );
+        subscription.currentPeriodEnd = new Date(
+            stripeSubscription.items.data[0].current_period_end * 1000
+        );
+        subscription.updatedAt = new Date();
+
         await this.subscriptionRepository.update(subscription);
+        console.log(`✅ Subscription updated in database`);
     }
 
     private async handleSubscriptionDeleted(stripeSubscription: Stripe.Subscription): Promise<void> {
@@ -295,11 +326,14 @@ export class HandleSubscriptionWebhookUseCase {
         // Map your Stripe price IDs to subscription plans
         // You should store these in environment variables
         const priceMappings: Record<string, SubscriptionPlan> = {
-            [process.env.STRIPE_MONTHLY_PRICE_ID || '']: 'monthly',
-            [process.env.STRIPE_YEARLY_PRICE_ID || '']: 'yearly',
-            [process.env.STRIPE_ONE_TIME_PRICE_ID || '']: 'one-time',
-            [process.env.STRIPE_MONTHLY_DISCOUNT_PRICE_ID || '']: 'monthly',
-            [process.env.STRIPE_YEARLY_DISCOUNT_PRICE_ID || '']: 'yearly',
+            [ENV_CONFIG.STRIPE_MONTHLY_PRICE_ID || '']: 'monthly',
+            [ENV_CONFIG.STRIPE_YEARLY_PRICE_ID || '']: 'yearly',
+            [ENV_CONFIG.STRIPE_STANDARD_PRICE_ID || '']: 'standard',
+            [ENV_CONFIG.STRIPE_PREMIUM_PRICE_ID || '']: 'premium',
+            [ENV_CONFIG.STRIPE_MONTHLY_DISCOUNT_PRICE_ID || '']: 'monthly',
+            [ENV_CONFIG.STRIPE_YEARLY_DISCOUNT_PRICE_ID || '']: 'yearly',
+            [ENV_CONFIG.STRIPE_STANDARD_DISCOUNT_PRICE_ID || '']: 'standard',
+            [ENV_CONFIG.STRIPE_PREMIUM_DISCOUNT_PRICE_ID || '']: 'premium',
         };
 
         // Try to get plan from price ID mapping

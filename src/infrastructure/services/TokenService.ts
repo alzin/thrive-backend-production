@@ -1,21 +1,20 @@
 // backend/src/infrastructure/services/TokenService.ts
 import jwt, { SignOptions } from 'jsonwebtoken';
 import crypto from 'crypto';
-import { ITokenService, TokenPayload, TokenPair } from '../../application/services/ITokenService';
+import { ITokenService, TokenPayload, TokenPair } from '../../domain/services/ITokenService';
+import { ENV_CONFIG } from '../config/env.config';
 
 export class TokenService implements ITokenService {
   private readonly accessTokenSecret: string;
   private readonly refreshTokenSecret: string;
-  private readonly csrfSecret: string;
   private readonly accessTokenExpiresIn: string;
   private readonly refreshTokenExpiresIn: string;
 
   constructor() {
-    this.accessTokenSecret = process.env.JWT_SECRET || 'default-secret';
-    this.refreshTokenSecret = process.env.JWT_REFRESH_SECRET || 'refresh-secret';
-    this.csrfSecret = process.env.CSRF_SECRET || 'csrf-secret';
-    this.accessTokenExpiresIn = process.env.ACCESS_TOKEN_EXPIRES_IN || '1d';
-    this.refreshTokenExpiresIn = process.env.REFRESH_TOKEN_EXPIRES_IN || '7d';
+    this.accessTokenSecret = ENV_CONFIG.JWT_SECRET || 'default-secret';
+    this.refreshTokenSecret = ENV_CONFIG.JWT_REFRESH_SECRET || 'refresh-secret';
+    this.accessTokenExpiresIn = ENV_CONFIG.ACCESS_TOKEN_EXPIRES_IN || '1d';
+    this.refreshTokenExpiresIn = ENV_CONFIG.REFRESH_TOKEN_EXPIRES_IN || '7d';
   }
 
   generateTokenPair(payload: TokenPayload): TokenPair {

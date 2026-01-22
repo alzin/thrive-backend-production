@@ -10,6 +10,8 @@ export interface SubscriptionStatusResponse {
     hasSubscription: boolean;
     hasAccessToCourses: boolean;
     status: string | null;
+    currentPlan: string | null;
+    isTrialing: boolean;
     subscription: {
         id: string;
         plan: string;
@@ -25,33 +27,37 @@ export class CheckUserSubscriptionUseCase {
     ) { }
 
     async execute(dto: CheckUserSubscriptionDTO): Promise<SubscriptionStatusResponse> {
-        // Verify user exists
         const user = await this.userRepository.findById(dto.userId);
         if (!user) {
             throw new Error('User not found');
         }
 
-        // Get the user's subscription (one-to-one relationship)
         const subscription = await this.subscriptionRepository.findByUserId(dto.userId);
-        const acccessSubscription = await this.subscriptionRepository.findActiveByUserId(dto.userId);
+        const activeSubscription = await this.subscriptionRepository.findActiveByUserId(dto.userId);
 
-        // Check if user has an active subscription
-        const hasSubscription = user.role === "ADMIN" ? true : subscription !== null;
-        const hasAccessToCourses = user.role === "ADMIN" ? true : acccessSubscription !== null;
+        const hasSubscription = user.role === 'ADMIN' ? true : subscription !== null;
+        const hasAccessToCourses = user.role === 'ADMIN' ? true : activeSubscription !== null;
 
-        const status = user.role === "ADMIN" ? "active" :
-            (subscription ? subscription.status : null);
+        const status = user.role === 'ADMIN' ? 'active' : subscription ? subscription.status : null;
+
+        const currentPlan = user.role === 'ADMIN' ? 'premium' : subscription ? subscription.subscriptionPlan : null;
+
+        const isTrialing = subscription?.status === 'trialing';
 
         return {
             hasSubscription,
             hasAccessToCourses,
             status,
-            subscription: subscription ? {
-                id: subscription.id,
-                plan: subscription.subscriptionPlan,
-                status: subscription.status,
-                currentPeriodEnd: subscription.currentPeriodEnd
-            } : null,
+            currentPlan,
+            isTrialing,
+            subscription: subscription
+                ? {
+                    id: subscription.id,
+                    plan: subscription.subscriptionPlan,
+                    status: subscription.status,
+                    currentPeriodEnd: subscription.currentPeriodEnd,
+                }
+                : null,
         };
     }
 }
