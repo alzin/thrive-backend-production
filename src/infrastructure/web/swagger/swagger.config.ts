@@ -1,6 +1,7 @@
 // src/infrastructure/web/swagger/swagger.config.ts
 import swaggerJsdoc from 'swagger-jsdoc';
 import * as path from 'path';
+import { ENV_CONFIG } from '../../config/env.config';
 
 const swaggerOptions: swaggerJsdoc.Options = {
     definition: {
@@ -19,8 +20,8 @@ const swaggerOptions: swaggerJsdoc.Options = {
         },
         servers: [
             {
-                url: process.env.API_URL || 'http://localhost:5000/api',
-                description: process.env.NODE_ENV === 'production' ? 'Production server' : 'Development server',
+                url: ENV_CONFIG.API_URL || 'http://localhost:5000/api',
+                description: ENV_CONFIG.NODE_ENV === 'production' ? 'Production server' : 'Development server',
             },
         ],
         components: {

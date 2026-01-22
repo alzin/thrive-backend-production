@@ -1,34 +1,29 @@
-// backend/src/infrastructure/services/S3StorageService.ts
-
 import AWS from 'aws-sdk';
-import { v4 as uuidv4 } from 'uuid';
 import path from 'path';
+import { v4 as uuidv4 } from 'uuid';
+
+import { ENV_CONFIG } from '../config/env.config';
 
 export class S3StorageService {
     private s3: AWS.S3;
     private bucketName: string;
 
     constructor() {
-        // Configure AWS with explicit configuration
         const awsConfig = {
-            accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-            secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-            region: process.env.AWS_REGION || 'us-east-1',
-            signatureVersion: 'v4', // Important for newer AWS regions
+            accessKeyId: ENV_CONFIG.AWS_ACCESS_KEY_ID,
+            secretAccessKey: ENV_CONFIG.AWS_SECRET_ACCESS_KEY,
+            region: ENV_CONFIG.AWS_REGION || 'us-east-1',
+            signatureVersion: 'v4',
         };
 
-        // Update AWS global configuration
         AWS.config.update(awsConfig);
 
         this.s3 = new AWS.S3({
             ...awsConfig,
-            // Force path-style URLs if needed
             s3ForcePathStyle: false,
-            // Set explicit endpoint if using custom S3-compatible service
-            // endpoint: 'https://s3.amazonaws.com', // Uncomment if needed
         });
 
-        this.bucketName = process.env.AWS_S3_BUCKET_NAME!;
+        this.bucketName = ENV_CONFIG.AWS_S3_BUCKET_NAME!;
 
         if (!this.bucketName) {
             throw new Error('AWS_S3_BUCKET_NAME environment variable is required');
@@ -36,9 +31,7 @@ export class S3StorageService {
 
     }
 
-    /**
-     * Sanitize filename to avoid encoding issues with special characters
-     */
+
     private sanitizeFilename(originalName: string): string {
 
         try {

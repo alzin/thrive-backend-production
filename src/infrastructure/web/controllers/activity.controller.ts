@@ -1,20 +1,18 @@
 import { Response, NextFunction } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
-import { RecentActivityRepository } from '../../database/repositories/RecentActivityRepository';
 import { ActivityType } from '../../../domain/entities/RecentActivity';
-import { UserRepository } from '../../database/repositories/UserRepository';
-import { ProfileRepository } from '../../database/repositories/ProfileRepository';
+
+import { GetUserActivitiesUseCase } from '../../../application/use-cases/activity/GetUserActivitiesUseCase';
+import { GetGlobalActivitiesUseCase } from '../../../application/use-cases/activity/GetGlobalActivitiesUseCase';
+import { GetMyRecentActivitiesUseCase } from '../../../application/use-cases/activity/GetMyRecentActivitiesUseCase';
 
 export class ActivityController {
-    private activityRepository: RecentActivityRepository;
-    private userRepository: UserRepository;
-    private profileRepository: ProfileRepository;
 
-    constructor() {
-        this.activityRepository = new RecentActivityRepository();
-        this.userRepository = new UserRepository();
-        this.profileRepository = new ProfileRepository();
-    }
+    constructor(
+        private readonly getUserActivitiesUseCase: GetUserActivitiesUseCase,
+        private readonly getGlobalActivitiesUseCase: GetGlobalActivitiesUseCase,
+        private readonly getMyRecentActivitiesUseCase: GetMyRecentActivitiesUseCase
+    ) { }
 
     async getUserActivities(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
         try {
@@ -33,7 +31,7 @@ export class ActivityController {
                 endDate: endDate ? new Date(endDate as string) : undefined,
             };
 
-            const result = await this.activityRepository.findWithFilters(
+            const result = await this.getUserActivitiesUseCase.execute(
                 filters,
                 Number(page),
                 Number(limit)
@@ -49,28 +47,9 @@ export class ActivityController {
         try {
             const { limit = 50 } = req.query;
 
-            const activities = await this.activityRepository.findGlobalRecent(Number(limit));
+            const result = await this.getGlobalActivitiesUseCase.execute(Number(limit));
 
-            // Enhance with user information
-            const enhancedActivities = await Promise.all(
-                activities.map(async (activity) => {
-                    const user = await this.userRepository.findById(activity.userId);
-                    const profile = await this.profileRepository.findByUserId(activity.userId);
-
-                    return {
-                        ...activity,
-                        user: {
-                            id: user?.id,
-                            email: user?.email,
-                            name: profile?.name || user?.email?.split('@')[0] || 'Unknown User',
-                            profilePhoto: profile?.profilePhoto,
-                            level: profile?.level || 1,
-                        },
-                    };
-                })
-            );
-
-            res.json({ activities: enhancedActivities });
+            res.json(result);
         } catch (error) {
             next(error);
         }
@@ -80,12 +59,12 @@ export class ActivityController {
         try {
             const { limit = 10 } = req.query;
 
-            const activities = await this.activityRepository.findByUserId(
+            const result = await this.getMyRecentActivitiesUseCase.execute(
                 req.user!.userId,
                 Number(limit)
             );
 
-            res.json({ activities });
+            res.json(result);
         } catch (error) {
             next(error);
         }

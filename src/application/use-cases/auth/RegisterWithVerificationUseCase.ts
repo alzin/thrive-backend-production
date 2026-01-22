@@ -1,8 +1,8 @@
 // backend/src/application/use-cases/auth/RegisterWithVerificationUseCase.ts
 import { IUserRepository } from '../../../domain/repositories/IUserRepository';
 import { User, UserRole } from '../../../domain/entities/User';
-import { IPasswordService } from '../../services/IPasswordService';
-import { IEmailService } from '../../services/IEmailService';
+import { IPasswordService } from '../../../domain/services/IPasswordService';
+import { IEmailService } from '../../../domain/services/IEmailService';
 import { IProfileRepository } from '../../../domain/repositories/IProfileRepository';
 import { Profile } from '../../../domain/entities/Profile';
 

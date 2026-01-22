@@ -1,7 +1,6 @@
 // backend/src/application/use-cases/auth/VerifyEmailUseCase.ts
 import { IUserRepository } from '../../../domain/repositories/IUserRepository';
-import { ITokenService } from '../../services/ITokenService';
-import { RefreshToken } from '../../../domain/entities/RefreshToken';
+import { ITokenService } from '../../../domain/services/ITokenService';
 
 export interface VerifyEmailDTO {
     email: string;

@@ -119,6 +119,7 @@ export class SubscriptionRepository implements ISubscriptionRepository {
         return entities.map(entity => this.toDomain(entity));
     }
 
+
     private toDomain(entity: SubscriptionEntity): Subscription {
         return new Subscription(
             entity.id,

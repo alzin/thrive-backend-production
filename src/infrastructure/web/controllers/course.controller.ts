@@ -1,25 +1,34 @@
-// backend/src/infrastructure/web/controllers/course.controller.ts
 import { Response, NextFunction } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
-import { CourseRepository } from '../../database/repositories/CourseRepository';
-import { LessonRepository } from '../../database/repositories/LessonRepository';
-import { ProgressRepository } from '../../database/repositories/ProgressRepository';
-import { KeywordRepository } from '../../database/repositories/KeywordRepository';
-import { CompleteLessonUseCase } from '../../../application/use-cases/lesson/CompleteLessonUseCase';
-import { ProfileRepository } from '../../database/repositories/ProfileRepository';
+
+// Use Cases
+import { GetAllCoursesUseCase } from '../../../application/use-cases/course/GetAllCoursesUseCase';
+import { GetCourseByIdUseCase } from '../../../application/use-cases/course/GetCourseByIdUseCase';
+import { GetCourseLessonsUseCase } from '../../../application/use-cases/course/GetCourseLessonsUseCase';
+import { CompleteLessonUseCase } from '../../../application/use-cases/course/CompleteLessonUseCase';
 import { EnrollInCourseUseCase } from '../../../application/use-cases/course/EnrollInCourseUseCase';
-import { EnrollmentRepository } from '../../database/repositories/EnrollmentRepository';
-import { UserRepository } from '../../database/repositories/UserRepository';
-import { Keyword } from '../../../domain/entities/Keyword';
-import { ActivityService } from '../../services/ActivityService';
+import { GetMyEnrollmentsUseCase } from '../../../application/use-cases/course/GetMyEnrollmentsUseCase';
+import { CheckEnrollmentUseCase } from '../../../application/use-cases/course/CheckEnrollmentUseCase';
+import { GetLessonByIdUseCase } from '../../../application/use-cases/course/GetLessonByIdUseCase';
 
 export class CourseController {
+  constructor(
+    private getAllCoursesUseCase: GetAllCoursesUseCase,
+    private getCourseByIdUseCase: GetCourseByIdUseCase,
+    private getCourseLessonsUseCase: GetCourseLessonsUseCase,
+    private completeLessonUseCase: CompleteLessonUseCase,
+    private enrollInCourseUseCase: EnrollInCourseUseCase,
+    private getMyEnrollmentsUseCase: GetMyEnrollmentsUseCase,
+    private checkEnrollmentUseCase: CheckEnrollmentUseCase,
+    private getLessonByIdUseCase: GetLessonByIdUseCase
+  ) { }
+
   async getAllCourses(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
-      const courseRepository = new CourseRepository();
-      const getOnlyActive = req.user?.role !== "ADMIN" ? true : undefined
+      const courses = await this.getAllCoursesUseCase.execute({
+        userRole: req.user?.role
+      });
 
-      const courses = await courseRepository.findAllWithLessonCounts(getOnlyActive);
       res.json(courses);
     } catch (error) {
       next(error);
@@ -29,16 +38,15 @@ export class CourseController {
   async getCourseById(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { courseId } = req.params;
-      const courseRepository = new CourseRepository();
-      const course = await courseRepository.findById(courseId);
 
-      if (!course) {
-        res.status(404).json({ error: 'Course not found' });
-        return;
-      }
+      const course = await this.getCourseByIdUseCase.execute({ courseId });
 
       res.json(course);
     } catch (error) {
+      if (error instanceof Error && error.message === 'Course not found') {
+        res.status(404).json({ error: error.message });
+        return;
+      }
       next(error);
     }
   }
@@ -46,41 +54,11 @@ export class CourseController {
   async getCourseLessons(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { courseId } = req.params;
-      const lessonRepository = new LessonRepository();
-      const progressRepository = new ProgressRepository();
-      const keywordRepository = new KeywordRepository();
 
-      const lessons = await lessonRepository.findByCourseId(courseId);
-      const progress = await progressRepository.findByUserAndCourse(req.user!.userId, courseId);
-
-      const lessonsWithProgress = await Promise.all(lessons.map(async (lesson) => {
-        const lessonProgress = progress.find(p => p.lessonId === lesson.id);
-
-        // Create the response object with all necessary fields
-        const lessonResponse: any = {
-          id: lesson.id,
-          courseId: lesson.courseId,
-          title: lesson.title,
-          description: lesson.description,
-          order: lesson.order,
-          lessonType: lesson.lessonType,
-          contentUrl: lesson.contentUrl,
-          contentData: lesson.contentData, // Include contentData
-          pointsReward: lesson.pointsReward,
-          requiresReflection: lesson.requiresReflection,
-          passingScore: lesson.passingScore, // Include passingScore
-          isCompleted: lessonProgress?.isCompleted || false,
-          completedAt: lessonProgress?.completedAt,
-        };
-
-        // Fetch keywords if lesson type is KEYWORDS
-        if (lesson.lessonType === 'KEYWORDS') {
-          const keywords = await keywordRepository.findByLessonId(lesson.id);
-          lessonResponse.keywords = keywords;
-        }
-
-        return lessonResponse;
-      }));
+      const lessonsWithProgress = await this.getCourseLessonsUseCase.execute({
+        courseId,
+        userId: req.user!.userId
+      });
 
       res.json(lessonsWithProgress);
     } catch (error) {
@@ -94,14 +72,7 @@ export class CourseController {
       const { lessonId } = req.params;
       const { reflectionContent, quizScore } = req.body || {};
 
-      const completeLessonUseCase = new CompleteLessonUseCase(
-        new LessonRepository(),
-        new ProgressRepository(),
-        new ProfileRepository(),
-        new ActivityService()
-      );
-
-      const progress = await completeLessonUseCase.execute({
+      const progress = await this.completeLessonUseCase.execute({
         userId: req.user!.userId,
         lessonId,
         reflectionContent,
@@ -118,14 +89,7 @@ export class CourseController {
     try {
       const { courseId } = req.params;
 
-      const enrollmentRepository = new EnrollmentRepository();
-      const enrollInCourseUseCase = new EnrollInCourseUseCase(
-        new CourseRepository(),
-        enrollmentRepository,
-        new UserRepository()
-      );
-
-      const enrollment = await enrollInCourseUseCase.execute({
+      const enrollment = await this.enrollInCourseUseCase.execute({
         userId: req.user!.userId,
         courseId
       });
@@ -145,17 +109,9 @@ export class CourseController {
 
   async getMyEnrollments(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
-      const enrollmentRepository = new EnrollmentRepository();
-      const enrollments = await enrollmentRepository.findByUserId(req.user!.userId);
-
-      // Get course details for each enrollment
-      const courseRepository = new CourseRepository();
-      const enrollmentsWithCourses = await Promise.all(
-        enrollments.map(async (enrollment) => {
-          const course = await courseRepository.findById(enrollment.courseId);
-          return { ...enrollment, course };
-        })
-      );
+      const enrollmentsWithCourses = await this.getMyEnrollmentsUseCase.execute({
+        userId: req.user!.userId
+      });
 
       res.json(enrollmentsWithCourses);
     } catch (error) {
@@ -166,14 +122,13 @@ export class CourseController {
   async checkEnrollment(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { courseId } = req.params;
-      const enrollmentRepository = new EnrollmentRepository();
 
-      const enrollment = await enrollmentRepository.findByUserAndCourse(
-        req.user!.userId,
+      const result = await this.checkEnrollmentUseCase.execute({
+        userId: req.user!.userId,
         courseId
-      );
+      });
 
-      res.json({ isEnrolled: !!enrollment });
+      res.json(result);
     } catch (error) {
       next(error);
     }
@@ -182,44 +137,18 @@ export class CourseController {
   async getLessonById(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { lessonId } = req.params;
-      const lessonRepository = new LessonRepository();
-      const keywordRepository = new KeywordRepository();
-      const progressRepository = new ProgressRepository();
 
-      const lesson = await lessonRepository.findById(lessonId);
-      if (!lesson) {
-        res.status(404).json({ error: 'Lesson not found' });
-        return;
-      }
-
-      // Check progress
-      const progress = await progressRepository.findByUserAndLesson(req.user!.userId, lessonId);
-
-      // Build response object
-      const lessonResponse: any = {
-        id: lesson.id,
-        courseId: lesson.courseId,
-        title: lesson.title,
-        description: lesson.description,
-        order: lesson.order,
-        lessonType: lesson.lessonType,
-        contentUrl: lesson.contentUrl,
-        contentData: lesson.contentData, // Include contentData
-        pointsReward: lesson.pointsReward,
-        requiresReflection: lesson.requiresReflection,
-        passingScore: lesson.passingScore, // Include passingScore
-        isCompleted: progress?.isCompleted || false,
-        completedAt: progress?.completedAt,
-      };
-
-      // Fetch keywords if lesson type is KEYWORDS
-      if (lesson.lessonType === 'KEYWORDS') {
-        const keywords = await keywordRepository.findByLessonId(lessonId);
-        lessonResponse.keywords = keywords;
-      }
+      const lessonResponse = await this.getLessonByIdUseCase.execute({
+        lessonId,
+        userId: req.user!.userId
+      });
 
       res.json(lessonResponse);
     } catch (error) {
+      if (error instanceof Error && error.message === 'Lesson not found') {
+        res.status(404).json({ error: error.message });
+        return;
+      }
       next(error);
     }
   }

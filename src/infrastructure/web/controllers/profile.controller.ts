@@ -1,29 +1,35 @@
-// backend/src/infrastructure/web/controllers/profile.controller.ts
+// backend/src/infrastructure/web/controllers/profile.controller.ts - Updated with Dependency Injection
 import { Response, NextFunction } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
-import { ProfileRepository } from '../../database/repositories/ProfileRepository';
-import { S3StorageService } from '../../services/S3StorageService';
+
+// Use Cases
+import { GetMyProfileUseCase } from '../../../application/use-cases/profile/GetMyProfileUseCase';
+import { UpdateProfileUseCase } from '../../../application/use-cases/profile/UpdateProfileUseCase';
+import { UploadProfilePhotoUseCase } from '../../../application/use-cases/profile/UploadProfilePhotoUseCase';
+import { DeleteProfilePhotoUseCase } from '../../../application/use-cases/profile/DeleteProfilePhotoUseCase';
+import { GetUserProfileUseCase } from '../../../application/use-cases/profile/GetUserProfileUseCase';
 
 export class ProfileController {
-  private storageService: S3StorageService;
-  private profileRepository: ProfileRepository;
-
-  constructor() {
-    this.storageService = new S3StorageService();
-    this.profileRepository = new ProfileRepository();
-  }
+  constructor(
+    private getMyProfileUseCase: GetMyProfileUseCase,
+    private updateProfileUseCase: UpdateProfileUseCase,
+    private uploadProfilePhotoUseCase: UploadProfilePhotoUseCase,
+    private deleteProfilePhotoUseCase: DeleteProfilePhotoUseCase,
+    private getUserProfileUseCase: GetUserProfileUseCase
+  ) { }
 
   async getMyProfile(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
-      const profile = await this.profileRepository.findByUserId(req.user!.userId);
-      
-      if (!profile) {
-        res.status(404).json({ error: 'Profile not found' });
-        return;
-      }
+      const profile = await this.getMyProfileUseCase.execute({
+        userId: req.user!.userId
+      });
 
       res.json(profile);
     } catch (error) {
+      if (error instanceof Error && error.message === 'Profile not found') {
+        res.status(404).json({ error: error.message });
+        return;
+      }
       next(error);
     }
   }
@@ -31,46 +37,28 @@ export class ProfileController {
   async updateProfile(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { name, bio, languageLevel } = req.body;
-      
-      const profile = await this.profileRepository.findByUserId(req.user!.userId);
-      if (!profile) {
-        res.status(404).json({ error: 'Profile not found' });
-        return;
-      }
 
-      // Validate name
-      if (name !== undefined) {
-        if (typeof name !== 'string' || name.trim().length === 0) {
-          res.status(400).json({ error: 'Name must be a non-empty string' });
-          return;
-        }
-        profile.name = name.trim();
-      }
+      const updatedProfile = await this.updateProfileUseCase.execute({
+        userId: req.user!.userId,
+        name,
+        bio,
+        languageLevel
+      });
 
-      // Validate bio
-      if (bio !== undefined) {
-        if (typeof bio !== 'string' || bio.length > 500) {
-          res.status(400).json({ error: 'Bio must be a string with max 500 characters' });
-          return;
-        }
-        profile.bio = bio.trim();
-      }
-
-      // Validate language level
-      if (languageLevel !== undefined) {
-        const validLevels = ['N5', 'N4', 'N3', 'N2', 'N1'];
-        if (!validLevels.includes(languageLevel)) {
-          res.status(400).json({ error: 'Invalid language level' });
-          return;
-        }
-        profile.languageLevel = languageLevel;
-      }
-
-      profile.updatedAt = new Date();
-
-      const updatedProfile = await this.profileRepository.update(profile);
       res.json(updatedProfile);
     } catch (error) {
+      if (error instanceof Error) {
+        if (error.message === 'Profile not found') {
+          res.status(404).json({ error: error.message });
+          return;
+        }
+        if (error.message === 'Name must be a non-empty string' ||
+          error.message === 'Bio must be a string with max 500 characters' ||
+          error.message === 'Invalid language level') {
+          res.status(400).json({ error: error.message });
+          return;
+        }
+      }
       next(error);
     }
   }
@@ -82,55 +70,32 @@ export class ProfileController {
         return;
       }
 
-      // Validate file type
-      const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
-      if (!allowedMimeTypes.includes(req.file.mimetype)) {
-        res.status(400).json({ error: 'Invalid file type. Only JPEG, PNG, WebP, and GIF are allowed' });
-        return;
-      }
-
-      // Validate file size (5MB max)
-      const maxSize = 5 * 1024 * 1024; // 5MB
-      if (req.file.size > maxSize) {
-        res.status(400).json({ error: 'File size exceeds 5MB limit' });
-        return;
-      }
-
-      const profile = await this.profileRepository.findByUserId(req.user!.userId);
-      if (!profile) {
-        res.status(404).json({ error: 'Profile not found' });
-        return;
-      }
-
-      // Delete old profile photo if exists
-      if (profile.profilePhoto) {
-        try {
-          await this.storageService.deleteOldProfilePhoto(profile.profilePhoto);
-        } catch (error) {
-          console.warn('Failed to delete old profile photo:', error);
-          // Continue with upload even if old photo deletion fails
+      const result = await this.uploadProfilePhotoUseCase.execute({
+        userId: req.user!.userId,
+        file: {
+          buffer: req.file.buffer,
+          mimetype: req.file.mimetype,
+          size: req.file.size
         }
-      }
+      });
 
-      // Upload new photo to S3
-      const photoUrl = await this.storageService.uploadProfilePhoto(
-        req.user!.userId,
-        req.file.buffer,
-        req.file.mimetype
-      );
-
-      // Update profile with new photo URL
-      profile.profilePhoto = photoUrl;
-      profile.updatedAt = new Date();
-
-      const updatedProfile = await this.profileRepository.update(profile);
-      
-      res.json({ 
+      res.json({
         message: 'Profile photo uploaded successfully',
-        profilePhoto: updatedProfile.profilePhoto,
-        profile: updatedProfile
+        profilePhoto: result.profilePhoto,
+        profile: result.profile
       });
     } catch (error) {
+      if (error instanceof Error) {
+        if (error.message === 'Profile not found') {
+          res.status(404).json({ error: error.message });
+          return;
+        }
+        if (error.message === 'Invalid file type. Only JPEG, PNG, WebP, and GIF are allowed' ||
+          error.message === 'File size exceeds 5MB limit') {
+          res.status(400).json({ error: error.message });
+          return;
+        }
+      }
       console.error('Profile photo upload error:', error);
       next(error);
     }
@@ -138,36 +103,25 @@ export class ProfileController {
 
   async deleteProfilePhoto(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
-      const profile = await this.profileRepository.findByUserId(req.user!.userId);
-      if (!profile) {
-        res.status(404).json({ error: 'Profile not found' });
-        return;
-      }
+      const updatedProfile = await this.deleteProfilePhotoUseCase.execute({
+        userId: req.user!.userId
+      });
 
-      if (!profile.profilePhoto) {
-        res.status(400).json({ error: 'No profile photo to delete' });
-        return;
-      }
-
-      // Delete photo from S3
-      try {
-        await this.storageService.deleteOldProfilePhoto(profile.profilePhoto);
-      } catch (error) {
-        console.warn('Failed to delete profile photo from S3:', error);
-        // Continue with database update even if S3 deletion fails
-      }
-
-      // Remove photo URL from profile
-      profile.profilePhoto = '';
-      profile.updatedAt = new Date();
-
-      const updatedProfile = await this.profileRepository.update(profile);
-      
-      res.json({ 
+      res.json({
         message: 'Profile photo deleted successfully',
         profile: updatedProfile
       });
     } catch (error) {
+      if (error instanceof Error) {
+        if (error.message === 'Profile not found') {
+          res.status(404).json({ error: error.message });
+          return;
+        }
+        if (error.message === 'No profile photo to delete') {
+          res.status(400).json({ error: error.message });
+          return;
+        }
+      }
       next(error);
     }
   }
@@ -175,27 +129,15 @@ export class ProfileController {
   async getUserProfile(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { userId } = req.params;
-      
-      const profile = await this.profileRepository.findByUserId(userId);
-      if (!profile) {
-        res.status(404).json({ error: 'User profile not found' });
-        return;
-      }
 
-      // Return public profile data only
-      const publicProfile = {
-        id: profile.id,
-        name: profile.name,
-        bio: profile.bio,
-        profilePhoto: profile.profilePhoto,
-        languageLevel: profile.languageLevel,
-        level: profile.level,
-        badges: profile.badges,
-        // Don't expose points and other sensitive data
-      };
+      const publicProfile = await this.getUserProfileUseCase.execute({ userId });
 
       res.json(publicProfile);
     } catch (error) {
+      if (error instanceof Error && error.message === 'User profile not found') {
+        res.status(404).json({ error: error.message });
+        return;
+      }
       next(error);
     }
   }

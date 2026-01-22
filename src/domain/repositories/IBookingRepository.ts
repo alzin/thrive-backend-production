@@ -15,4 +15,5 @@ export interface IBookingRepository {
   findActiveByUserId(userId: string): Promise<Booking[]>;
   update(booking: Booking): Promise<Booking>;
   cancel(id: string): Promise<boolean>;
+  countMonthlyStandardSessionBookings(userId: string, year: number, month: number): Promise<number>;
 }

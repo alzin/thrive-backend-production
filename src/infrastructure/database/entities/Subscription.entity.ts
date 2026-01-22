@@ -44,7 +44,7 @@ export class SubscriptionEntity {
 
     @Column({
         type: 'enum',
-        enum: ['monthly', 'yearly', 'one-time']
+        enum: ['monthly', 'yearly', 'one-time', 'standard', 'premium']
     })
     subscriptionPlan!: SubscriptionPlan;
 

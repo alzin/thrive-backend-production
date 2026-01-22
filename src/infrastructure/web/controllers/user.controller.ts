@@ -1,21 +1,33 @@
+// backend/src/infrastructure/web/controllers/user.controller.ts - Updated with Dependency Injection
 import { Response, NextFunction } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
-import { ProfileRepository } from '../../database/repositories/ProfileRepository';
+
+// Use Cases
+import { GetUserProfileUseCase } from '../../../application/use-cases/user/GetUserProfileUseCase';
+import { SearchUsersUseCase } from '../../../application/use-cases/user/SearchUsersUseCase';
+import { BlockUserUseCase } from '../../../application/use-cases/user/BlockUserUseCase';
+import { UnblockUserUseCase } from '../../../application/use-cases/user/UnblockUserUseCase';
 
 export class UserController {
+  constructor(
+    private getUserProfileUseCase: GetUserProfileUseCase,
+    private searchUsersUseCase: SearchUsersUseCase,
+    private blockUserUseCase: BlockUserUseCase,
+    private unblockUserUseCase: UnblockUserUseCase
+  ) { }
+
   async getUserProfile(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { userId } = req.params;
-      const profileRepository = new ProfileRepository();
-      
-      const profile = await profileRepository.findByUserId(userId);
-      if (!profile) {
-        res.status(404).json({ error: 'User not found' });
-        return;
-      }
+
+      const profile = await this.getUserProfileUseCase.execute({ userId });
 
       res.json(profile);
     } catch (error) {
+      if (error instanceof Error && error.message === 'User not found') {
+        res.status(404).json({ error: error.message });
+        return;
+      }
       next(error);
     }
   }
@@ -23,19 +35,12 @@ export class UserController {
   async searchUsers(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { q } = req.query;
-      if (!q || typeof q !== 'string') {
-        res.json([]);
-        return;
-      }
 
-      const profileRepository = new ProfileRepository();
-      const profiles = await profileRepository.findAll();
-      
-      const filtered = profiles.filter(profile => 
-        profile.name.toLowerCase().includes(q.toLowerCase())
-      );
+      const profiles = await this.searchUsersUseCase.execute({
+        query: String(q || '')
+      });
 
-      res.json(filtered);
+      res.json(profiles);
     } catch (error) {
       next(error);
     }
@@ -44,7 +49,9 @@ export class UserController {
   async blockUser(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { userId } = req.params;
-      // Implement block logic
+
+      await this.blockUserUseCase.execute({ userId });
+
       res.json({ message: 'User blocked successfully' });
     } catch (error) {
       next(error);
@@ -54,7 +61,9 @@ export class UserController {
   async unblockUser(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { userId } = req.params;
-      // Implement unblock logic
+
+      await this.unblockUserUseCase.execute({ userId });
+
       res.json({ message: 'User unblocked successfully' });
     } catch (error) {
       next(error);

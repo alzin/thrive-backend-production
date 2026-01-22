@@ -258,6 +258,7 @@ export class SessionRepository implements ISessionRepository {
       entity.type,
       entity.hostId,
       entity.meetingUrl ?? undefined,
+      entity.location ?? undefined,
       entity.scheduledAt,
       entity.duration,
       entity.maxParticipants,
@@ -280,6 +281,7 @@ export class SessionRepository implements ISessionRepository {
     entity.type = session.type;
     entity.hostId = session.hostId;
     entity.meetingUrl = session.meetingUrl || null;
+    entity.location = session.location || null;
     entity.scheduledAt = session.scheduledAt;
     entity.duration = session.duration;
     entity.maxParticipants = session.maxParticipants;

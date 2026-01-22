@@ -1,5 +1,5 @@
 // backend/src/domain/entities/Subscription.ts
-export type SubscriptionPlan = 'monthly' | 'yearly' | 'one-time';
+export type SubscriptionPlan = 'monthly' | 'yearly' | 'one-time' | 'standard' | 'premium';
 export type SubscriptionStatus = 'active' | 'canceled' | 'past_due' | 'unpaid' | 'trialing';
 
 export interface ISubscription {

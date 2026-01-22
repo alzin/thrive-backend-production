@@ -1,7 +1,7 @@
 import { AuthenticationError } from '../../../domain/errors/AuthenticationError';
 import { IUserRepository } from '../../../domain/repositories/IUserRepository';
-import { IEmailService } from '../../services/IEmailService';
-import { ITokenService } from '../../services/ITokenService';
+import { IEmailService } from '../../../domain/services/IEmailService';
+import { ITokenService } from '../../../domain/services/ITokenService';
 
 export interface RequestPasswordResetDTO {
   email: string;

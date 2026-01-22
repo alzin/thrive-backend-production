@@ -1,25 +1,25 @@
 import nodemailer from 'nodemailer';
-import { IEmailService } from '../../application/services/IEmailService';
+import { IEmailService } from '../../domain/services/IEmailService';
+import { ENV_CONFIG } from '../config/env.config';
 
 export class EmailService implements IEmailService {
   private transporter: nodemailer.Transporter;
 
   constructor() {
     this.transporter = nodemailer.createTransport({
-      host: process.env.EMAIL_HOST,
-      port: parseInt(process.env.EMAIL_PORT || '587'),
+      host: ENV_CONFIG.EMAIL_HOST,
+      port: ENV_CONFIG.EMAIL_PORT,
       secure: false,
-      // service: "gmail",
       auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
+        user: ENV_CONFIG.EMAIL_USER,
+        pass: ENV_CONFIG.EMAIL_PASS,
       },
     });
   }
 
   async sendWelcomeEmailWithoutPassword(email: string, name: string): Promise<void> {
     const mailOptions = {
-      from: `"Thrive in Japan" <${process.env.EMAIL_USER}>`,
+      from: `"Thrive in Japan" <${ENV_CONFIG.EMAIL_USER}>`,
       to: email,
       subject: 'Welcome to Thrive in Japan!',
       html: `
@@ -27,7 +27,7 @@ export class EmailService implements IEmailService {
         <h1 style="color: #5C633A;">Welcome to Thrive in Japan, ${name}! 🌸</h1>
         <p>Your learning journey begins now!</p>
         <p>You can log in to your account using the email and password you provided during registration.</p>
-        <a href="${process.env.FRONTEND_URL}/login" style="display: inline-block; background-color: #5C633A; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; margin-top: 20px;">Login Now</a>
+        <a href="${ENV_CONFIG.FRONTEND_URL}/login" style="display: inline-block; background-color: #5C633A; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; margin-top: 20px;">Login Now</a>
         <p style="color: #666; margin-top: 20px;">If you have any questions, feel free to reach out to our support team.</p>
       </div>
     `,
@@ -38,7 +38,7 @@ export class EmailService implements IEmailService {
 
   async sendWelcomeEmail(email: string, temporaryPassword: string): Promise<void> {
     const mailOptions = {
-      from: `"Thrive in Japan" <${process.env.EMAIL_USER}>`,
+      from: `"Thrive in Japan" <${ENV_CONFIG.EMAIL_USER}>`,
       to: email,
       subject: 'Welcome to Thrive in Japan - Your Account Details',
       html: `
@@ -51,7 +51,7 @@ export class EmailService implements IEmailService {
             <p><strong>Temporary Password:</strong> <code style="background-color: #fff; padding: 5px;">${temporaryPassword}</code></p>
           </div>
           <p style="color: #666; margin-top: 20px;">Please change your password after your first login.</p>
-          <a href="${process.env.FRONTEND_URL}/login" style="display: inline-block; background-color: #5C633A; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; margin-top: 20px;">Login Now</a>
+          <a href="${ENV_CONFIG.FRONTEND_URL}/login" style="display: inline-block; background-color: #5C633A; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; margin-top: 20px;">Login Now</a>
         </div>
       `,
     };
@@ -60,10 +60,10 @@ export class EmailService implements IEmailService {
   }
 
   async sendPasswordResetEmail(email: string, resetToken: string): Promise<void> {
-    const resetUrl = `${process.env.FRONTEND_URL}/reset-password?token=${resetToken}`;
+    const resetUrl = `${ENV_CONFIG.FRONTEND_URL}/reset-password?token=${resetToken}`;
 
     const mailOptions = {
-      from: `"Thrive in Japan" <${process.env.EMAIL_USER}>`,
+      from: `"Thrive in Japan" <${ENV_CONFIG.EMAIL_USER}>`,
       to: email,
       subject: 'Password Reset Request',
       html: `
@@ -81,7 +81,7 @@ export class EmailService implements IEmailService {
 
   async sendBookingConfirmation(email: string, sessionDetails: any): Promise<void> {
     const mailOptions = {
-      from: `"Thrive in Japan" <${process.env.EMAIL_USER}>`,
+      from: `"Thrive in Japan" <${ENV_CONFIG.EMAIL_USER}>`,
       to: email,
       subject: 'Booking Confirmation - ' + sessionDetails.title,
       html: `
@@ -104,7 +104,7 @@ export class EmailService implements IEmailService {
 
   async sendSessionReminder(email: string, sessionDetails: any): Promise<void> {
     const mailOptions = {
-      from: `"Thrive in Japan" <${process.env.EMAIL_USER}>`,
+      from: `"Thrive in Japan" <${ENV_CONFIG.EMAIL_USER}>`,
       to: email,
       subject: 'Reminder: Session Starting Soon - ' + sessionDetails.title,
       html: `
@@ -126,7 +126,7 @@ export class EmailService implements IEmailService {
   async sendVerificationCode(email: string, code: string): Promise<void> {
 
     const mailOptions = {
-      from: `"Thrive in Japan" <${process.env.EMAIL_USER}>`,
+      from: `"Thrive in Japan" <${ENV_CONFIG.EMAIL_USER}>`,
       to: email,
       subject: 'Verify your email - Thrive in Japan',
       html: `

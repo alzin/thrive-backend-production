@@ -1,6 +1,6 @@
 import { IUserRepository } from '../../../domain/repositories/IUserRepository';
-import { IPasswordService } from '../../services/IPasswordService';
-import { ITokenService } from '../../services/ITokenService';
+import { IPasswordService } from '../../../domain/services/IPasswordService';
+import { ITokenService } from '../../../domain/services/ITokenService';
 import { AuthenticationError } from '../../../domain/errors/AuthenticationError';
 
 export interface ResetPasswordDTO {

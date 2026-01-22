@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { AuthenticationError } from '../../../domain/errors/AuthenticationError';
+import { ENV_CONFIG } from '../../config/env.config';
 
 export interface AppError extends Error {
   statusCode?: number;
@@ -43,7 +44,7 @@ export const errorHandler = (
   res.status(statusCode).json({
     error: {
       message: err.message,
-      ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
+      ...(ENV_CONFIG.NODE_ENV === 'development' && { stack: err.stack })
     }
   });
 };

@@ -6,6 +6,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { swaggerSpec } from './swagger.config';
 import { SwaggerSpecification, SwaggerYamlContent } from './swagger.types';
+import { ENV_CONFIG } from '../../config/env.config';
 
 export function setupSwagger(app: Application): void {
   // Cast swaggerSpec to the proper type
@@ -100,7 +101,7 @@ export function setupSwagger(app: Application): void {
     customfavicon: '/favicon.ico',
     swaggerOptions: {
       persistAuthorization: true,
-      tryItOutEnabled: process.env.NODE_ENV !== 'production',
+      tryItOutEnabled: ENV_CONFIG.NODE_ENV !== 'production',
       filter: true,
       deepLinking: true,
       displayOperationId: false,

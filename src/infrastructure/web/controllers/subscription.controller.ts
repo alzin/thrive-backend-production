@@ -1,19 +1,18 @@
-// backend/src/infrastructure/web/controllers/subscription.controller.ts
 import { Response, NextFunction } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
-import { SubscriptionRepository } from '../../database/repositories/SubscriptionRepository';
+
+// Use Cases
 import { CheckUserSubscriptionUseCase } from '../../../application/use-cases/subscription/CheckUserSubscriptionUseCase';
-import { UserRepository } from '../../database/repositories/UserRepository';
 
 export class SubscriptionController {
+    constructor(
+        private checkUserSubscriptionUseCase: CheckUserSubscriptionUseCase
+    ) { }
+
     async checkSubscription(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
         try {
-            const checkSubscriptionUseCase = new CheckUserSubscriptionUseCase(
-                new SubscriptionRepository(),
-                new UserRepository()
-            );
 
-            const status = await checkSubscriptionUseCase.execute({
+            const status = await this.checkUserSubscriptionUseCase.execute({
                 userId: req.user!.userId,
             });
 

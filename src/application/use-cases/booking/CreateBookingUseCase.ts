@@ -2,10 +2,36 @@ import { ISessionRepository } from '../../../domain/repositories/ISessionReposit
 import { IBookingRepository, Booking } from '../../../domain/repositories/IBookingRepository';
 import { IProfileRepository } from '../../../domain/repositories/IProfileRepository';
 import { ActivityService } from '../../../infrastructure/services/ActivityService';
+import { IBookingValidationService } from '../../../domain/services/IBookingValidationService';
 
 export interface CreateBookingDTO {
   userId: string;
   sessionId: string;
+}
+
+export enum BookingErrorCode {
+  SESSION_NOT_FOUND = 'SESSION_NOT_FOUND',
+  NO_SUBSCRIPTION = 'NO_SUBSCRIPTION',
+  PLAN_ACCESS_DENIED = 'PLAN_ACCESS_DENIED',
+  ACTIVE_BOOKING_LIMIT = 'ACTIVE_BOOKING_LIMIT',
+  MONTHLY_LIMIT_EXCEEDED = 'MONTHLY_LIMIT_EXCEEDED',
+  INSUFFICIENT_NOTICE = 'INSUFFICIENT_NOTICE',
+  SESSION_FULL = 'SESSION_FULL',
+  ALREADY_BOOKED = 'ALREADY_BOOKED',
+  INSUFFICIENT_POINTS = 'INSUFFICIENT_POINTS',
+  SESSION_INACTIVE = 'SESSION_INACTIVE',
+  SESSION_PAST = 'SESSION_PAST',
+  VALIDATION_FAILED = 'VALIDATION_FAILED'
+}
+
+export class BookingError extends Error {
+  constructor(
+    public code: BookingErrorCode,
+    public reasons: string[]
+  ) {
+    super(reasons.join('; '));
+    this.name = 'BookingError';
+  }
 }
 
 export class CreateBookingUseCase {
@@ -13,31 +39,27 @@ export class CreateBookingUseCase {
     private sessionRepository: ISessionRepository,
     private bookingRepository: IBookingRepository,
     private profileRepository: IProfileRepository,
-    private activityService: ActivityService
+    private activityService: ActivityService,
+    private bookingValidationService: IBookingValidationService
   ) { }
 
   async execute(dto: CreateBookingDTO): Promise<Booking> {
+    // Run comprehensive validation
+    const validation = await this.bookingValidationService.validateBooking({
+      userId: dto.userId,
+      sessionId: dto.sessionId
+    });
+
+    // If validation fails, throw detailed error
+    if (!validation.canBook) {
+      const errorCode = this.determineErrorCode(validation);
+      throw new BookingError(errorCode, validation.reasons);
+    }
+
+    // Validation passed - proceed with booking
     const session = await this.sessionRepository.findById(dto.sessionId);
     if (!session) {
-      throw new Error('Session not found');
-    }
-
-    if (!session.canBook()) {
-      throw new Error('Session cannot be booked');
-    }
-
-    // Check user's points if required
-    if (session.pointsRequired > 0) {
-      const profile = await this.profileRepository.findByUserId(dto.userId);
-      if (!profile || profile.points < session.pointsRequired) {
-        throw new Error('Insufficient points');
-      }
-    }
-
-    // Check active bookings limit (max 2)
-    const activeBookings = await this.bookingRepository.findActiveByUserId(dto.userId);
-    if (activeBookings.length >= 2) {
-      throw new Error('Maximum active bookings reached');
+      throw new BookingError(BookingErrorCode.SESSION_NOT_FOUND, ['Session not found']);
     }
 
     // Create booking
@@ -60,7 +82,7 @@ export class CreateBookingUseCase {
       await this.profileRepository.updatePoints(dto.userId, -session.pointsRequired);
     }
 
-    // #activity
+    // Log activity
     await this.activityService.logSessionBooked(
       dto.userId,
       session.title,
@@ -68,5 +90,46 @@ export class CreateBookingUseCase {
     );
 
     return savedBooking;
+  }
+
+  /**
+   * Determines the most relevant error code based on validation details
+   */
+  private determineErrorCode(validation: { canBook: boolean; reasons: string[]; validationDetails: any }): BookingErrorCode {
+    const details = validation.validationDetails;
+
+    // Order matters - check most specific conditions first
+    if (!details.hasActiveSubscription) {
+      return BookingErrorCode.NO_SUBSCRIPTION;
+    }
+    if (details.isAlreadyBooked) {
+      return BookingErrorCode.ALREADY_BOOKED;
+    }
+    if (!details.meetsMinimumNotice && details.hoursUntilSession > 0) {
+      return BookingErrorCode.INSUFFICIENT_NOTICE;
+    }
+    if (details.hoursUntilSession <= 0) {
+      return BookingErrorCode.SESSION_PAST;
+    }
+    if (!details.isSessionActive) {
+      return BookingErrorCode.SESSION_INACTIVE;
+    }
+    if (!details.canAccessSessionType) {
+      return BookingErrorCode.PLAN_ACCESS_DENIED;
+    }
+    if (details.activeBookingsRemaining <= 0) {
+      return BookingErrorCode.ACTIVE_BOOKING_LIMIT;
+    }
+    if (details.remainingMonthlyBookings !== null && details.remainingMonthlyBookings <= 0) {
+      return BookingErrorCode.MONTHLY_LIMIT_EXCEEDED;
+    }
+    if (details.spotsAvailable <= 0) {
+      return BookingErrorCode.SESSION_FULL;
+    }
+    if (!details.hasEnoughPoints) {
+      return BookingErrorCode.INSUFFICIENT_POINTS;
+    }
+
+    return BookingErrorCode.VALIDATION_FAILED;
   }
 }
