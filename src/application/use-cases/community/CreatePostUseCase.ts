@@ -21,23 +21,26 @@ export class CreatePostUseCase {
   ) { }
 
   async execute(dto: CreatePostDTO): Promise<Post> {
-    // 1. Subscription Check (Priority)
-    const subscription = await this.subscriptionRepository.findActiveByUserId(dto.userId);
-    
-    // Strict check: Must allow 'active' or 'trialing'. Explicitly block 'canceled'.
-    if (subscription && subscription.status === 'canceled') {
-      throw new Error('Your subscription is canceled. You cannot create posts.');
-    }
-    
-    // Optional: If you want to require *some* active plan (not just non-canceled):
-    if (!subscription || !['active', 'trialing'].includes(subscription.status)) {
-      throw new Error('Active subscription required to post in the community.');
-    }
 
     const user = await this.userRepository.findById(dto.userId);
     if (!user) {
       throw new Error('User not found');
     }
+
+    // 1. Subscription Check (Priority)
+    const subscription = await this.subscriptionRepository.findActiveByUserId(dto.userId);
+
+    // Strict check: Must allow 'active' or 'trialing'. Explicitly block 'canceled'.
+    if (subscription && subscription.status === 'canceled') {
+      throw new Error('Your subscription is canceled. You cannot create posts.');
+    }
+
+    // Optional: If you want to require *some* active plan (not just non-canceled):
+    if ((!subscription || !['active', 'trialing'].includes(subscription.status)) && !user.isAdmin) {
+      throw new Error('Active subscription required to post in the community.');
+    }
+
+
 
     // Get user profile for author info
     const profile = await this.profileRepository.findByUserId(dto.userId);
