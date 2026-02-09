@@ -17,10 +17,6 @@ export class CreateCommentOnFeedbackUseCase {
             throw new Error("Comment content is required");
         }
 
-        if (content.trim().length > 1000) {
-            throw new Error("Comment content must not exceed 1000 characters");
-        }
-
         return await this.createCommentUseCase.execute({
             userId,
             postId: feedbackId, // Using postId field for both posts and feedback

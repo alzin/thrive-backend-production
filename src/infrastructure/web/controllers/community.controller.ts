@@ -272,13 +272,6 @@ export class CommunityController {
         });
       }
 
-      if (content.trim().length > 1000) {
-        return res.status(400).json({
-          success: false,
-          message: "Comment content must not exceed 1000 characters"
-        });
-      }
-
       // NOTE: The use case will handle determining whether postId is for a post or announcement
       const comment = await this.createCommentForAllUseCase.execute({
         userId,
@@ -329,8 +322,7 @@ export class CommunityController {
       });
     } catch (error) {
       if (error instanceof Error) {
-        if (error.message === "Comment content is required" ||
-          error.message === "Comment content must not exceed 1000 characters") {
+        if (error.message === "Comment content is required") {
           res.status(400).json({
             success: false,
             message: error.message
