@@ -92,8 +92,8 @@ const communityRouter = (communityController: CommunityController): Router => {
       body('content')
         .notEmpty()
         .trim()
-        .isLength({ min: 1, max: 1000 })
-        .withMessage('Comment content must be between 1 and 1000 characters'),
+        .isLength({ min: 1 })
+        .withMessage('Comment content must be at least 1 character'),
       body('parentCommentId')
         .optional()
         .isString()
@@ -111,8 +111,8 @@ const communityRouter = (communityController: CommunityController): Router => {
       body('content')
         .notEmpty()
         .trim()
-        .isLength({ min: 1, max: 1000 })
-        .withMessage('Comment content must be between 1 and 1000 characters')
+        .isLength({ min: 1 })
+        .withMessage('Comment content must be at least 1 character')
     ],
     validateRequest,
     communityController.updateComment.bind(communityController)

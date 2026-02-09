@@ -22,10 +22,6 @@ export class UpdateCommentUseCase {
             throw new Error("Comment content is required");
         }
 
-        if (content.trim().length > 1000) {
-            throw new Error("Comment content must not exceed 1000 characters");
-        }
-
         const existingComment = await this.commentRepository.findById(commentId);
 
         if (!existingComment) {

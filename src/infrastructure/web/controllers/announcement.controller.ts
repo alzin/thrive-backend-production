@@ -284,8 +284,7 @@ export class AnnouncementController {
       });
     } catch (error) {
       if (error instanceof Error) {
-        if (error.message === 'Comment content is required' ||
-          error.message === 'Comment content must not exceed 1000 characters') {
+        if (error.message === 'Comment content is required') {
           return res.status(400).json({
             success: false,
             message: error.message
