@@ -112,7 +112,7 @@ const communityRouter = (communityController: CommunityController): Router => {
         .notEmpty()
         .trim()
         .isLength({ min: 1 })
-        .withMessage('Comment content must be at least 1 character')
+        .withMessage('Comment content must be at least 1 character'),
     ],
     validateRequest,
     communityController.updateComment.bind(communityController)

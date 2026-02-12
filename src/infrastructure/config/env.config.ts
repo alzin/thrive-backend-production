@@ -54,4 +54,10 @@ export const ENV_CONFIG = {
     AWS_SECRET_ACCESS_KEY: process.env.AWS_SECRET_ACCESS_KEY,
     AWS_S3_BUCKET_NAME: process.env.AWS_S3_BUCKET_NAME,
 
+    BREVO_API_KEY: process.env.BREVO_API_KEY,
+    BREVO_TRANSACTIONAL_LIST_ID: parseInt(process.env.BREVO_TRANSACTIONAL_LIST_ID || '2'),
+    BREVO_MARKETING_LIST_ID: parseInt(process.env.BREVO_MARKETING_LIST_ID || '3'),
+
+    FREE_TRIAL_DAYS: parseInt(process.env.FREE_TRIAL_DAYS!) || 14,
+
 };

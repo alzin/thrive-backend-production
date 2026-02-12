@@ -1,13 +1,18 @@
 // backend/src/application/use-cases/auth/VerifyEmailUseCase.ts
 import { IUserRepository } from '../../../domain/repositories/IUserRepository';
 import { ITokenService } from '../../../domain/services/ITokenService';
+import { ENV_CONFIG } from '../../../infrastructure/config/env.config';
 
 export interface VerifyEmailDTO {
     email: string;
     code: string;
+    // Optional: skip trial setup if user is in paid flow
+    skipTrialSetup?: boolean;
 }
 
 export class VerifyEmailUseCase {
+    private readonly FREE_TRIAL_DAYS = ENV_CONFIG.FREE_TRIAL_DAYS;
+
     constructor(
         private userRepository: IUserRepository,
         private tokenService: ITokenService,
@@ -41,6 +46,18 @@ export class VerifyEmailUseCase {
         user.exprirat = null; // Clear expiration
         user.updatedAt = new Date();
 
+        // Set up free trial (14 days) if not in paid flow
+        // skipTrialSetup is true when user has pre-selected a plan
+        if (!dto.skipTrialSetup) {
+            const trialStartDate = new Date();
+            const trialEndDate = new Date();
+            trialEndDate.setDate(trialEndDate.getDate() + this.FREE_TRIAL_DAYS);
+
+            user.trialStartDate = trialStartDate;
+            user.trialEndDate = trialEndDate;
+            user.trialConvertedToPaid = false;
+        }
+
         await this.userRepository.update(user);
 
         // Generate new token pair
@@ -60,7 +77,12 @@ export class VerifyEmailUseCase {
                 role: user.role
             },
             tokens: tokenPair,
-            csrfToken
+            csrfToken,
+            // Return trial info for frontend
+            trialInfo: {
+                isInFreeTrial: !dto.skipTrialSetup && user.trialStartDate !== null,
+                trialEndDate: user.trialEndDate,
+            }
         };
     }
 }

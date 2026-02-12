@@ -35,6 +35,22 @@ export class UserEntity {
   @Column({ default: false })
   hasSeedTourVideo!: boolean; // ADD THIS FIELD
 
+  @Column({ default: false })
+  marketingEmails!: boolean; // ADD THIS FIELD
+
+  // Free trial fields (no credit card required)
+  @Column({ type: 'timestamp', nullable: true, default: null })
+  trialStartDate!: Date | null;
+
+  @Column({ type: 'timestamp', nullable: true, default: null })
+  trialEndDate!: Date | null;
+
+  @Column({ default: false })
+  trialConvertedToPaid!: boolean; // Flag to ensure trial_converted_to_paid event fires only once
+
+  @Column({ default: false })
+  hasEverPaid!: boolean; // Permanent flag - set to true on first paid transaction (never resets)
+
   @CreateDateColumn()
   createdAt!: Date;
 

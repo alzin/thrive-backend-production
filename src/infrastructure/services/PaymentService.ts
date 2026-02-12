@@ -110,6 +110,11 @@ export class PaymentService implements IPaymentService {
           quantity: 1,
         },
       ],
+      custom_text: {
+        submit: {
+          message: 'Secure payment with Stripe. All transactions are encrypted and 100% secure.',
+        },
+      },
       mode: params.mode,
       success_url: params.successUrl,
       cancel_url: params.cancelUrl,
@@ -123,13 +128,12 @@ export class PaymentService implements IPaymentService {
       sessionConfig.customer_email = params.metadata?.email;
     }
 
-    const trialDays = Number(ENV_CONFIG.STRIPE_FREE_DAYS) + 1;
-
-    if (params.mode === 'subscription' && !params.customerId && params.metadata?.hasTrial !== false) {
-      sessionConfig.subscription_data = {
-        trial_end: this.daysToSecondsFromNow(trialDays),
-      };
-    }
+    // const trialDays = Number(ENV_CONFIG.STRIPE_FREE_DAYS) + 1;
+    // if (params.mode === 'subscription' && !params.customerId && params.metadata?.hasTrial !== false) {
+    //   sessionConfig.subscription_data = {
+    //     trial_end: this.daysToSecondsFromNow(trialDays),
+    //   };
+    // }
 
     const session = await this.stripe.checkout.sessions.create(sessionConfig);
     return session;
@@ -205,7 +209,7 @@ export class PaymentService implements IPaymentService {
       metadata: session.metadata
     };
   }
-  
+
 
   async createUpgradeCheckoutSession(params: {
     customerId: string;

@@ -4,12 +4,14 @@ import { User, UserRole } from '../../../domain/entities/User';
 import { IPasswordService } from '../../../domain/services/IPasswordService';
 import { IEmailService } from '../../../domain/services/IEmailService';
 import { IProfileRepository } from '../../../domain/repositories/IProfileRepository';
+import { IBrevoService } from '../../../domain/services/IBrevoService';
 import { Profile } from '../../../domain/entities/Profile';
 
 export interface RegisterWithVerificationDTO {
     name: string;
     email: string;
     password: string;
+    marketingEmails?: boolean;
 }
 
 export class RegisterWithVerificationUseCase {
@@ -18,7 +20,7 @@ export class RegisterWithVerificationUseCase {
         private passwordService: IPasswordService,
         private emailService: IEmailService,
         private profileRepository: IProfileRepository,
-
+        private brevoService: IBrevoService
     ) { }
 
     async execute(dto: RegisterWithVerificationDTO): Promise<{ user: User; verificationCode: string }> {
@@ -27,6 +29,7 @@ export class RegisterWithVerificationUseCase {
 
         if (existingUser) {
             const userProfile = await this.profileRepository.findByUserId(existingUser.id);
+            const isAddedToMarketingEmails = existingUser.marketingEmails;
 
             if (existingUser.isverify) {
                 throw new Error('User already exists');
@@ -41,6 +44,9 @@ export class RegisterWithVerificationUseCase {
             existingUser.password = await this.passwordService.hash(dto.password);
             existingUser.verificationCode = verificationCode;
             existingUser.exprirat = expirationDate;
+            if (typeof dto.marketingEmails === 'boolean') {
+                existingUser.marketingEmails = dto.marketingEmails;
+            }
             existingUser.updatedAt = new Date();
 
             const updatedUser = await this.userRepository.update(existingUser);
@@ -57,6 +63,10 @@ export class RegisterWithVerificationUseCase {
             // Send verification email
             await this.emailService.sendVerificationCode(dto.email, verificationCode);
 
+            if (!isAddedToMarketingEmails) {
+                await this.brevoService.syncContactToLists(dto.email, dto.name, !!dto.marketingEmails);
+            }
+
             return { user: updatedUser, verificationCode };
         }
 
@@ -70,6 +80,7 @@ export class RegisterWithVerificationUseCase {
         expirationDate.setMinutes(expirationDate.getMinutes() + 10);
 
         // Create new user with isverify = false
+        // Trial dates are set to null initially - they will be set on email verification
         const user = new User(
             `${Date.now()}-${Math.random().toString(36).substring(2, 10)}`,
             dto.email.trim(),
@@ -79,7 +90,12 @@ export class RegisterWithVerificationUseCase {
             false, // isverify
             verificationCode,
             expirationDate,
-            false,
+            false, // hasSeedTourVideo
+            dto.marketingEmails || false,
+            null, // trialStartDate - set on email verification
+            null, // trialEndDate - set on email verification
+            false, // trialConvertedToPaid
+            false, // hasEverPaid
             new Date(),
             new Date()
         );
@@ -105,6 +121,8 @@ export class RegisterWithVerificationUseCase {
 
         // Send verification email
         await this.emailService.sendVerificationCode(dto.email, verificationCode);
+
+        await this.brevoService.syncContactToLists(dto.email, dto.name, !!dto.marketingEmails);
 
         return { user: savedUser, verificationCode };
     }
