@@ -59,6 +59,7 @@ export class HandleSubscriptionWebhookUseCase {
         const email = session.customer_email || session.metadata?.email;
         const isUpgrade = session.metadata?.isUpgrade === 'true';
         const previousSubscriptionId = session.metadata?.previousSubscriptionId;
+        const planType = session.metadata?.planType || 'unknown';
 
         if (!userId || !email) {
             console.error('❌ Missing userId or email in session metadata');
@@ -70,6 +71,20 @@ export class HandleSubscriptionWebhookUseCase {
         if (!user) {
             console.error('❌ User not found:', userId);
             return;
+        }
+
+        // Check if this is a trial-to-paid conversion
+        // User was in free trial if they have trialStartDate and trialEndDate set
+        const wasInFreeTrial = user.trialStartDate !== null && user.trialEndDate !== null;
+
+        if (wasInFreeTrial && !user.trialConvertedToPaid) {
+            // Mark trial as converted (this ensures analytics fires only once)
+            user.trialConvertedToPaid = true;
+            user.updatedAt = new Date();
+            await this.userRepository.update(user);
+            console.log(`📊 Trial converted to paid for user ${userId}, plan: ${planType}`);
+            // The frontend will fire the trial_converted_to_paid event
+            // based on the trialConvertedToPaid flag returned by VerifyCheckoutSession
         }
 
         // Handle upgrade scenario - cancel old subscription

@@ -33,6 +33,7 @@ import { PasswordService } from "../../services/PasswordService";
 import { TokenService } from "../../services/TokenService";
 import { S3StorageService } from "../../services/S3StorageService";
 import { BookingValidationService } from "../../services/BookingValidationService";
+import { BrevoService } from "../../services/BrevoService";
 
 // ========== USE CASES (47) ==========
 
@@ -263,6 +264,7 @@ export interface DependencyContainer {
         token: TokenService;
         s3Storage: S3StorageService;
         bookingValidation: BookingValidationService;
+        brevo: BrevoService;
     };
 
     // Use Cases
@@ -510,8 +512,10 @@ export const setupDependencies = (): DependencyContainer => {
             repositories.session,
             repositories.booking,
             repositories.subscription,
-            repositories.profile
+            repositories.profile,
+            repositories.user
         ),
+        brevo: new BrevoService(),
     };
 
     // ========== Initialize Use Cases ==========
@@ -676,7 +680,8 @@ export const setupDependencies = (): DependencyContainer => {
             repositories.user,
             services.password,
             services.email,
-            repositories.profile
+            repositories.profile,
+            services.brevo
         ),
         requestPasswordReset: new RequestPasswordResetUseCase(
             repositories.user,
@@ -971,7 +976,8 @@ export const setupDependencies = (): DependencyContainer => {
             repositories.subscription
         ),
         verifyCheckoutSession: new VerifyCheckoutSessionUseCase(
-            services.payment
+            services.payment,
+            repositories.user
         ),
         createCustomerPortal: new CreateCustomerPortalUseCase(
             services.payment,

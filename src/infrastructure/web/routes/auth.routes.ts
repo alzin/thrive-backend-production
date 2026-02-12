@@ -66,6 +66,7 @@ const authRouter = (authController: AuthController): Router => {
       body('name').notEmpty().trim(),
       body('email').isEmail(),
       body('password').isLength({ min: 8 }).matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d|.*[@$!%*?&#])[A-Za-z\d@$!%*?&#]/),
+      body('marketingEmails').optional().isBoolean()
     ],
     validateRequest,
     authController.registerWithVerification.bind(authController)
@@ -76,6 +77,7 @@ const authRouter = (authController: AuthController): Router => {
     [
       body('email').isEmail(),
       body('code').isLength({ min: 6, max: 6 }).isNumeric(),
+      body('skipTrialSetup').optional().isBoolean(),
     ],
     validateRequest,
     authController.verifyEmailCode.bind(authController)

@@ -22,6 +22,7 @@ export class UpdateCommentUseCase {
             throw new Error("Comment content is required");
         }
 
+
         const existingComment = await this.commentRepository.findById(commentId);
 
         if (!existingComment) {

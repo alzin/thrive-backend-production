@@ -14,7 +14,13 @@ export interface IUser {
   isverify: boolean;
   verificationCode: string | null;
   exprirat: Date | null;
-  hasSeedTourVideo: boolean; // ADD THIS FIELD
+  hasSeedTourVideo: boolean;
+  marketingEmails: boolean;
+  // Free trial fields (no credit card required)
+  trialStartDate: Date | null;
+  trialEndDate: Date | null;
+  trialConvertedToPaid: boolean; // Flag to ensure trial_converted_to_paid event fires only once
+  hasEverPaid: boolean; // Permanent flag - set to true on first paid transaction (never resets)
   createdAt: Date;
   updatedAt: Date;
 }
@@ -29,7 +35,13 @@ export class User implements IUser {
     public isverify: boolean,
     public verificationCode: string | null,
     public exprirat: Date | null,
-    public hasSeedTourVideo: boolean, // ADD THIS FIELD
+    public hasSeedTourVideo: boolean,
+    public marketingEmails: boolean,
+    // Free trial fields (no credit card required)
+    public trialStartDate: Date | null,
+    public trialEndDate: Date | null,
+    public trialConvertedToPaid: boolean,
+    public hasEverPaid: boolean,
     public createdAt: Date,
     public updatedAt: Date
   ) { }

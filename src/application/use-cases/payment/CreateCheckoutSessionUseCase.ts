@@ -213,10 +213,17 @@ export class CreateCheckoutSessionUseCase {
         const { existingSubscription, newPlanType, successUrl, cancelUrl, metadata, userId, isUpgrade } =
             params;
 
-        const newPriceId = this.DISCOUNT_PRICES[newPlanType as keyof typeof this.DISCOUNT_PRICES]?.regular;
+        const { isEligible } = await this.getDiscountStatus();
+
+        let newPriceId = '';
+        if (isEligible && this.DISCOUNT_PRICES[newPlanType as keyof typeof this.DISCOUNT_PRICES]) {
+            newPriceId = this.DISCOUNT_PRICES[newPlanType as keyof typeof this.DISCOUNT_PRICES].discounted;
+        } else if (this.DISCOUNT_PRICES[newPlanType as keyof typeof this.DISCOUNT_PRICES]) {
+            newPriceId = this.DISCOUNT_PRICES[newPlanType as keyof typeof this.DISCOUNT_PRICES].regular;
+        }
 
         if (!newPriceId) {
-            throw new Error(`Invalid plan type: ${newPlanType}`);
+            throw new Error(`Price ID for plan "${newPlanType}" is not configured.`);
         }
 
         // Check if customer has a valid payment method

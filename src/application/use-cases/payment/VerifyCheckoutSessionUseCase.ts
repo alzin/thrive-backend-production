@@ -1,4 +1,5 @@
 import { PaymentService } from "../../../infrastructure/services/PaymentService";
+import { IUserRepository } from "../../../domain/repositories/IUserRepository";
 
 export interface VerifyCheckoutSessionRequest {
     sessionId: string;
@@ -19,10 +20,20 @@ export interface VerifyCheckoutSessionResponse {
         isTrial: boolean;
         interval: string;
     };
+    // New fields for trial conversion analytics
+    trialConversion: {
+        wasInFreeTrial: boolean;
+        isFirstConversion: boolean; // Only true if this is the FIRST time converting
+    };
+    // New field for first-time payment tracking (GA4)
+    isFirstEverPaid: boolean; // Only true if this is the user's first ever paid subscription
 }
 
 export class VerifyCheckoutSessionUseCase {
-    constructor(private paymentService: PaymentService) { }
+    constructor(
+        private paymentService: PaymentService,
+        private userRepository?: IUserRepository
+    ) { }
 
     async execute(request: VerifyCheckoutSessionRequest): Promise<VerifyCheckoutSessionResponse> {
         const { sessionId } = request;
@@ -45,6 +56,38 @@ export class VerifyCheckoutSessionUseCase {
             }
         }
 
+        // Check trial conversion status
+        let wasInFreeTrial = false;
+        let isFirstConversion = false;
+        let isFirstEverPaid = false;
+
+        const userId = session.metadata?.userId;
+        if (userId && this.userRepository) {
+            const user = await this.userRepository.findById(userId);
+            if (user) {
+                // User was in free trial if they had trial dates set
+                wasInFreeTrial = user.trialStartDate !== null && user.trialEndDate !== null;
+
+                // Check if this is the first conversion
+                isFirstConversion = wasInFreeTrial && !isTrial && user.trialConvertedToPaid;
+
+                // 🎯 Check hasEverPaid flag - this is set when user makes their FIRST paid transaction
+                // This flag is permanent and never resets, even if they cancel and re-subscribe
+                if (!user.hasEverPaid && !isTrial) {
+                    // This is the first paid transaction ever
+                    isFirstEverPaid = true;
+
+                    // Mark user as having paid (permanent flag)
+                    user.hasEverPaid = true;
+                    await this.userRepository.update(user);
+
+                    console.log(`✅ First-time paid subscription for user ${userId}. GA4 tracking enabled. Flag set permanently.`);
+                } else if (user.hasEverPaid) {
+                    console.log(`ℹ️ User ${userId} has already made a payment before (hasEverPaid=true). Not counting as first payment.`);
+                }
+            }
+        }
+
         return {
             status: session.payment_status,
             paymentIntentId: session.payment_intent,
@@ -59,7 +102,12 @@ export class VerifyCheckoutSessionUseCase {
                 customerId: session.customer as string || 'cus_guest',
                 isTrial: isTrial,
                 interval: session.metadata?.interval || 'monthly'
-            }
+            },
+            trialConversion: {
+                wasInFreeTrial,
+                isFirstConversion,
+            },
+            isFirstEverPaid,
         };
     }
 }

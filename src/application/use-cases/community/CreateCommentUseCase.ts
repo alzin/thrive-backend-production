@@ -15,21 +15,35 @@ export interface CreateCommentDTO {
 export class CreateCommentUseCase {
   constructor(
     private commentRepository: ICommentRepository,
-    private commentableRepository: ICommentableRepository, 
+    private commentableRepository: ICommentableRepository,
     private userRepository: IUserRepository,
     private profileRepository: IProfileRepository,
     private subscriptionRepository: ISubscriptionRepository
   ) { }
 
   async execute(dto: CreateCommentDTO): Promise<Comment> {
-    // 1. Subscription Check (Priority)
+    // Get user first to check free trial status
+    const user = await this.userRepository.findById(dto.userId);
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    // Check if user is in free trial (no subscription, but has trial dates set)
+    const now = new Date();
+    const isInFreeTrial = user.trialStartDate !== null &&
+      user.trialEndDate !== null &&
+      now < user.trialEndDate;
+
+    // 1. Subscription Check (Priority) - Skip if user is in free trial or is admin
     const subscription = await this.subscriptionRepository.findActiveByUserId(dto.userId);
 
-    if (subscription && subscription.status === 'canceled') {
+    if (subscription && subscription.status === 'canceled' && user.role !== 'ADMIN') {
       throw new Error('Your subscription is canceled. You cannot post comments.');
     }
 
-    if (!subscription || !['active', 'trialing'].includes(subscription.status)) {
+    // Allow commenting if user has active subscription OR is in free trial OR is admin
+    const hasActiveSubscription = subscription && ['active', 'trialing'].includes(subscription.status);
+    if (!hasActiveSubscription && !isInFreeTrial && user.role !== 'ADMIN') {
       throw new Error('Active subscription required to comment.');
     }
 
@@ -39,15 +53,8 @@ export class CreateCommentUseCase {
       throw new Error('Post or announcement not found');
     }
 
-    // 3. Validate user exists and get user info in parallel with profile
-    const [user, profile] = await Promise.all([
-      this.userRepository.findById(dto.userId),
-      this.profileRepository.findByUserId(dto.userId)
-    ]);
-
-    if (!user) {
-      throw new Error("User not found");
-    }
+    // 3. Get user profile
+    const profile = await this.profileRepository.findByUserId(dto.userId);
 
     // 4. If it's a reply, validate parent comment exists
     let parentComment = null;
@@ -78,20 +85,20 @@ export class CreateCommentUseCase {
       commentId,
       dto.postId,
       dto.userId,
-      dto.content.trim(), 
+      dto.content.trim(),
       dto.parentCommentId,
       author,
       new Date(),
       new Date(),
-      [] 
+      []
     );
 
     const savedComment = await this.commentRepository.create(comment);
 
     return {
       ...savedComment,
-      author: author, 
-      replies: [] 
+      author: author,
+      replies: []
     };
   }
 }
