@@ -19,10 +19,12 @@ export class GetUsersUseCase {
         const usersWithProfiles = users.map(user => {
             const profile = profiles.find(p => p.userId === user.id);
             const subscription = subscriptions.find(s => s.userId === user.id);
+            const isTrial = user.trialEndDate && new Date(user.trialEndDate) > new Date() ;
+            // console.log(`>>> DEBUG TRIAL STATUS: User ${user.email} isTrial =`, isTrial);
             return {
                 ...user,
                 profile,
-                subscriptionStatus: user.role === "ADMIN" ? "active" : subscription ? subscription.status : "No Subscription"
+                subscriptionStatus: user.role === "ADMIN" ? "active" : subscription ? subscription.status : isTrial ? "trialing" : "No Subscription"
             };
         });
 
