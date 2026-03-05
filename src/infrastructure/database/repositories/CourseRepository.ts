@@ -32,18 +32,21 @@ export class CourseRepository implements ICourseRepository {
     return entities.map(e => this.toDomain(e));
   }
 
-  async findAllWithLessonCounts(isActive?: boolean): Promise<(Course & { lessonCount: number })[]> {
-    const where = isActive !== undefined ? { isActive } : {};
+  async findAllWithLessonCounts(isActive?: boolean, levelId?: string): Promise<(Course & { lessonCount: number })[]> {
+    const where: any = {};
+    if (isActive !== undefined) where.isActive = isActive;
+    if (levelId) where.levelId = levelId;
 
     const entities = await this.repository.find({
       where,
-      order: { order: 'ASC' }, // Changed from createdAt to order
-      relations: ['lessons'] // Include lessons in the result
+      order: { order: 'ASC' },
+      relations: ['lessons', 'level']
     });
 
     return entities.map(e => ({
       ...this.toDomain(e),
-      lessonCount: e.lessons?.length || 0
+      lessonCount: e.lessons?.length || 0,
+      level: e.level ? { id: e.level.id, name: e.level.name } : null
     }));
   }
 
@@ -67,9 +70,10 @@ export class CourseRepository implements ICourseRepository {
       entity.icon,
       entity.isActive,
       entity.freeLessonCount,
-      entity.order, // Added order field
+      entity.order,
       entity.createdAt,
-      entity.updatedAt
+      entity.updatedAt,
+      entity.levelId || null
     );
   }
 
@@ -82,7 +86,8 @@ export class CourseRepository implements ICourseRepository {
     entity.icon = course.icon;
     entity.isActive = course.isActive;
     entity.freeLessonCount = course.freeLessonCount;
-    entity.order = course.order; // Added order field
+    entity.order = course.order;
+    entity.levelId = course.levelId || null;
     entity.createdAt = course.createdAt;
     entity.updatedAt = course.updatedAt;
     return entity;

@@ -12,7 +12,8 @@ export interface ICourse {
   icon: string;
   isActive: boolean;
   freeLessonCount: number;
-  order: number; // NEW FIELD
+  order: number;
+  levelId: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -26,8 +27,9 @@ export class Course implements ICourse {
     public icon: string,
     public isActive: boolean,
     public freeLessonCount: number,
-    public order: number, // NEW FIELD
+    public order: number,
     public createdAt: Date,
-    public updatedAt: Date
+    public updatedAt: Date,
+    public levelId: string | null = null
   ) { }
 }

@@ -24,7 +24,7 @@ export class GetSessionsWithPaginationUseCase {
 
         const filters: any = {};
 
-        if (input.type && (input.type === 'SPEAKING' || input.type === 'EVENT')) {
+        if (input.type && (input.type === 'SPEAKING' || input.type === 'EVENT' || input.type === 'PREMIUM' || input.type === 'STANDARD')) {
             filters.type = input.type;
         }
 

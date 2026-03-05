@@ -7,6 +7,7 @@ interface CreateCourseInput {
     type: CourseType;
     icon: string;
     freeLessonCount?: number;
+    levelId?: string;
 }
 
 export class CreateCourseUseCase {
@@ -31,7 +32,8 @@ export class CreateCourseUseCase {
             input.freeLessonCount || 0,
             maxOrder + 1,
             new Date(),
-            new Date()
+            new Date(),
+            input.levelId || null
         );
 
         return await this.courseRepository.create(course);

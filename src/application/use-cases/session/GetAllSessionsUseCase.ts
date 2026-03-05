@@ -36,7 +36,7 @@ export class GetAllSessionsUseCase {
         // Build filter conditions
         const filters: any = {};
 
-        if (type && (type === 'SPEAKING' || type === 'EVENT')) {
+        if (type && (type === 'SPEAKING' || type === 'EVENT' || type === 'PREMIUM' || type === 'STANDARD')) {
             filters.type = type;
         }
 

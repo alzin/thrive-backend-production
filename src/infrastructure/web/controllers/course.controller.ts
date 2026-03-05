@@ -25,8 +25,10 @@ export class CourseController {
 
   async getAllCourses(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
+      const levelId = req.query.levelId as string | undefined;
       const courses = await this.getAllCoursesUseCase.execute({
-        userRole: req.user?.role
+        userRole: req.user?.role,
+        levelId
       });
 
       res.json(courses);

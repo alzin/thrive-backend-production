@@ -69,13 +69,21 @@ export class ActivityService implements IActivityService {
         );
     }
 
-    async logSessionAttended(userId: string, sessionTitle: string): Promise<RecentActivity> {
+    async logSessionAttended(userId: string, sessionTitle: string, sessionType?: string): Promise<RecentActivity> {
+        const description = sessionType === 'PREMIUM'
+            ? 'Completed premium session'
+            : sessionType === 'STANDARD'
+                ? 'Completed standard session'
+                : sessionType === 'EVENT'
+                    ? 'Attended special event'
+                    : 'Completed speaking practice';
+
         return this.logActivity(
             userId,
             ActivityType.SESSION_ATTENDED,
             `Attended "${sessionTitle}"`,
-            'Completed speaking practice',
-            { sessionTitle }
+            description,
+            { sessionTitle, sessionType }
         );
     }
 
