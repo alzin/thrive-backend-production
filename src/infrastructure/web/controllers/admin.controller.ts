@@ -32,6 +32,11 @@ import { GetEngagementAnalyticsUseCase } from '../../../application/use-cases/ad
 
 import { CreatePostUseCase } from '../../../application/use-cases/community/CreatePostUseCase';
 
+import { CreateLevelUseCase } from '../../../application/use-cases/admin/level-management/CreateLevelUseCase';
+import { UpdateLevelUseCase } from '../../../application/use-cases/admin/level-management/UpdateLevelUseCase';
+import { DeleteLevelUseCase } from '../../../application/use-cases/admin/level-management/DeleteLevelUseCase';
+import { GetAllLevelsUseCase } from '../../../application/use-cases/level/GetAllLevelsUseCase';
+
 import { CourseType } from '../../../domain/entities/Course';
 import { SessionType } from '../../../domain/entities/Session';
 import { LessonType } from '../../../domain/entities/Lesson';
@@ -73,15 +78,64 @@ export class AdminController {
     private readonly getEngagementAnalyticsUseCase: GetEngagementAnalyticsUseCase,
 
     // Community Use Cases
-    private readonly createPostUseCase: CreatePostUseCase
+    private readonly createPostUseCase: CreatePostUseCase,
+
+    // Level Management Use Cases
+    private readonly createLevelUseCase: CreateLevelUseCase,
+    private readonly updateLevelUseCase: UpdateLevelUseCase,
+    private readonly deleteLevelUseCase: DeleteLevelUseCase,
+    private readonly getAllLevelsUseCase: GetAllLevelsUseCase
   ) { }
 
   // ========== USER MANAGEMENT ==========
 
+  private parseArrayQuery(value: unknown): string[] {
+    if (!value) return [];
+    if (Array.isArray(value)) return value.map(String).filter(Boolean);
+    return String(value)
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+
   async getUsers(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { page = 1, limit = 20 } = req.query;
-      const result = await this.getUsersUseCase.execute(Number(page), Number(limit));
+      const {
+        page = 1,
+        limit = 20,
+        search,
+        roles,
+        statuses,
+        subscriptions,
+        languageLevels,
+        dateFrom,
+        dateTo,
+        pointsMin,
+        pointsMax,
+        levelMin,
+        levelMax,
+        sortField,
+        sortOrder,
+      } = req.query;
+
+      const result = await this.getUsersUseCase.execute({
+        page: Number(page),
+        limit: Number(limit),
+        search: search ? String(search) : undefined,
+        roles: this.parseArrayQuery(roles),
+        statuses: this.parseArrayQuery(statuses),
+        subscriptions: this.parseArrayQuery(subscriptions),
+        languageLevels: this.parseArrayQuery(languageLevels),
+        dateFrom: dateFrom ? String(dateFrom) : undefined,
+        dateTo: dateTo ? String(dateTo) : undefined,
+        pointsMin: pointsMin !== undefined && pointsMin !== '' ? Number(pointsMin) : undefined,
+        pointsMax: pointsMax !== undefined && pointsMax !== '' ? Number(pointsMax) : undefined,
+        levelMin: levelMin !== undefined && levelMin !== '' ? Number(levelMin) : undefined,
+        levelMax: levelMax !== undefined && levelMax !== '' ? Number(levelMax) : undefined,
+        sortField: sortField as "joined" | "points" | "level" | "name" | undefined,
+        sortOrder: sortOrder as "asc" | "desc" | undefined,
+      });
+
       res.json(result);
     } catch (error) {
       next(error);
@@ -126,14 +180,15 @@ export class AdminController {
 
   async createCourse(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { title, description, type, icon, freeLessonCount = 0 } = req.body;
+      const { title, description, type, icon, freeLessonCount = 0, levelId } = req.body;
 
       const course = await this.createCourseUseCase.execute({
         title,
         description,
         type: type as CourseType,
         icon,
-        freeLessonCount
+        freeLessonCount,
+        levelId
       });
 
       res.status(201).json(course);
@@ -480,5 +535,54 @@ export class AdminController {
     }
   }
 
+  // ========== LEVEL MANAGEMENT ==========
+
+  async getAllLevels(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const levels = await this.getAllLevelsUseCase.execute();
+      res.json(levels);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async createLevel(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { name, description } = req.body;
+      const level = await this.createLevelUseCase.execute({ name, description });
+      res.status(201).json(level);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async updateLevel(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { levelId } = req.params;
+      const updates = req.body;
+      const updated = await this.updateLevelUseCase.execute(levelId, updates);
+      res.json(updated);
+    } catch (error: any) {
+      if (error.message === 'Level not found') {
+        res.status(404).json({ error: error.message });
+        return;
+      }
+      next(error);
+    }
+  }
+
+  async deleteLevel(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { levelId } = req.params;
+      const result = await this.deleteLevelUseCase.execute(levelId);
+      res.json(result);
+    } catch (error: any) {
+      if (error.message === 'Level not found') {
+        res.status(404).json({ error: error.message });
+        return;
+      }
+      next(error);
+    }
+  }
 
 }

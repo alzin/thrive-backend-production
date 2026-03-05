@@ -82,49 +82,80 @@ export class CreateCheckoutSessionUseCase {
             existingSubscription.stripeCustomerId &&
             ['active', 'trialing'].includes(existingSubscription.status)
         ) {
-            const currentPlan = existingSubscription.subscriptionPlan;
-            const isTrialing = existingSubscription.status === 'trialing';
-            const isSamePlan = currentPlan === planType;
+            // Verify the Stripe subscription is actually still alive
+            // (guards against stale DB status from missed webhooks or expired periods)
+            const stripeSubscription = await this.paymentService.retrieveSubscription(
+                existingSubscription.stripeSubscriptionId
+            );
+            const stripeStatus = stripeSubscription?.status;
+            const isStripeSubAlive = stripeStatus === 'active' || stripeStatus === 'trialing';
 
-            // SCENARIO 1: Same plan + Trialing → "Pay Now" (end trial and activate)
-            if (isSamePlan && isTrialing) {
-                return await this.handlePayNow({
-                    existingSubscription,
-                    userId,
-                });
-            }
+            // Also check if the local period has expired
+            const now = new Date();
+            const periodEnd = new Date(existingSubscription.currentPeriodEnd);
+            const isPeriodExpired = now >= periodEnd;
 
-            // SCENARIO 2: Same plan + Active → Error (already subscribed)
-            if (isSamePlan && !isTrialing) {
-                throw new Error(`You are already actively subscribed to the ${planType} plan.`);
-            }
+            if (!isStripeSubAlive || isPeriodExpired) {
+                // Stripe subscription is gone or expired — sync DB status and fall through
+                // to new-subscription logic below
+                console.log(
+                    `⚠️ Subscription ${existingSubscription.stripeSubscriptionId} is no longer valid ` +
+                    `(stripeStatus=${stripeStatus}, periodExpired=${isPeriodExpired}). ` +
+                    `Treating as new subscription.`
+                );
 
-            // SCENARIO 3: Different plan → Upgrade or Downgrade
-            const currentHierarchy = this.PLAN_HIERARCHY[currentPlan] || 0;
-            const newHierarchy = this.PLAN_HIERARCHY[planType] || 0;
-
-            if (newHierarchy > currentHierarchy) {
-                // UPGRADE
-                return await this.handlePlanChange({
-                    existingSubscription,
-                    newPlanType: planType,
-                    successUrl,
-                    cancelUrl,
-                    metadata,
-                    userId,
-                    isUpgrade: true,
-                });
+                // Update DB to reflect reality
+                if (!isStripeSubAlive && existingSubscription.status !== 'canceled') {
+                    existingSubscription.status = 'canceled';
+                    existingSubscription.updatedAt = new Date();
+                    await this.subscriptionRepository.update(existingSubscription);
+                }
             } else {
-                // DOWNGRADE
-                return await this.handlePlanChange({
-                    existingSubscription,
-                    newPlanType: planType,
-                    successUrl,
-                    cancelUrl,
-                    metadata,
-                    userId,
-                    isUpgrade: false,
-                });
+                // Subscription is genuinely active on Stripe — proceed with upgrade/downgrade
+                const currentPlan = existingSubscription.subscriptionPlan;
+                const isTrialing = existingSubscription.status === 'trialing';
+                const isSamePlan = currentPlan === planType;
+
+                // SCENARIO 1: Same plan + Trialing → "Pay Now" (end trial and activate)
+                if (isSamePlan && isTrialing) {
+                    return await this.handlePayNow({
+                        existingSubscription,
+                        userId,
+                    });
+                }
+
+                // SCENARIO 2: Same plan + Active → Error (already subscribed)
+                if (isSamePlan && !isTrialing) {
+                    throw new Error(`You are already actively subscribed to the ${planType} plan.`);
+                }
+
+                // SCENARIO 3: Different plan → Upgrade or Downgrade
+                const currentHierarchy = this.PLAN_HIERARCHY[currentPlan] || 0;
+                const newHierarchy = this.PLAN_HIERARCHY[planType] || 0;
+
+                if (newHierarchy > currentHierarchy) {
+                    // UPGRADE
+                    return await this.handlePlanChange({
+                        existingSubscription,
+                        newPlanType: planType,
+                        successUrl,
+                        cancelUrl,
+                        metadata,
+                        userId,
+                        isUpgrade: true,
+                    });
+                } else {
+                    // DOWNGRADE
+                    return await this.handlePlanChange({
+                        existingSubscription,
+                        newPlanType: planType,
+                        successUrl,
+                        cancelUrl,
+                        metadata,
+                        userId,
+                        isUpgrade: false,
+                    });
+                }
             }
         }
 
@@ -177,13 +208,25 @@ export class CreateCheckoutSessionUseCase {
         const { existingSubscription } = params;
 
         try {
-            const updatedSubscription = await this.paymentService.cancelTrialAndActivatePayment(
+            const updatedStripeSubscription = await this.paymentService.cancelTrialAndActivatePayment(
                 existingSubscription.stripeSubscriptionId
             );
 
-            if (!updatedSubscription) {
+            if (!updatedStripeSubscription) {
                 throw new Error('Failed to activate subscription');
             }
+
+            // Immediately sync DB so checkPayment returns fresh data
+            // (don't wait for the webhook which may arrive later)
+            existingSubscription.status = 'active';
+            existingSubscription.currentPeriodStart = new Date(
+                updatedStripeSubscription.items.data[0].current_period_start * 1000
+            );
+            existingSubscription.currentPeriodEnd = new Date(
+                updatedStripeSubscription.items.data[0].current_period_end * 1000
+            );
+            existingSubscription.updatedAt = new Date();
+            await this.subscriptionRepository.update(existingSubscription);
 
             return {
                 isDiscounted: false,
@@ -234,11 +277,24 @@ export class CreateCheckoutSessionUseCase {
         // If on trial OR has payment method, do direct plan change
         if (hasPaymentMethod || existingSubscription.status === 'trialing') {
             try {
-                const updatedSubscription = await this.paymentService.upgradeSubscription({
+                const updatedStripeSubscription = await this.paymentService.upgradeSubscription({
                     subscriptionId: existingSubscription.stripeSubscriptionId,
                     newPriceId: newPriceId,
                     prorationBehavior: 'create_prorations',
                 });
+
+                // Immediately sync DB so checkPayment returns fresh data
+                // (don't wait for the webhook which may arrive later)
+                existingSubscription.subscriptionPlan = newPlanType;
+                existingSubscription.status = updatedStripeSubscription.status === 'trialing' ? 'trialing' : 'active';
+                existingSubscription.currentPeriodStart = new Date(
+                    updatedStripeSubscription.items.data[0].current_period_start * 1000
+                );
+                existingSubscription.currentPeriodEnd = new Date(
+                    updatedStripeSubscription.items.data[0].current_period_end * 1000
+                );
+                existingSubscription.updatedAt = new Date();
+                await this.subscriptionRepository.update(existingSubscription);
 
                 const actionWord = isUpgrade ? 'upgraded' : 'downgraded';
                 const trialMessage = existingSubscription.status === 'trialing'

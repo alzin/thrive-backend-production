@@ -8,7 +8,7 @@ interface PaginationOptions {
   offset: number;
   limit: number;
   filters?: {
-    type?: 'SPEAKING' | 'EVENT';
+    type?: 'SPEAKING' | 'EVENT' | 'PREMIUM' | 'STANDARD';
     isActive?: boolean;
     isRecurring?: boolean;
   };

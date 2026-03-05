@@ -66,7 +66,7 @@ const adminRouter = (adminController: AdminController): Router => {
     [
       body('title').notEmpty(),
       body('description').notEmpty(),
-      body('type').isIn(['SPEAKING', 'EVENT', 'STANDARD']),
+      body('type').isIn(['SPEAKING', 'EVENT', 'STANDARD', 'PREMIUM']),
       body('scheduledAt').isISO8601(),
       body('duration').isInt({ min: 15 }),
       body('maxParticipants').isInt({ min: 1 }),
@@ -110,7 +110,18 @@ const adminRouter = (adminController: AdminController): Router => {
     adminController.createAnnouncement.bind(adminController)
   );
 
-
+  // Level management
+  router.get('/levels', adminController.getAllLevels.bind(adminController));
+  router.post(
+    '/levels',
+    [
+      body('name').notEmpty()
+    ],
+    validateRequest,
+    adminController.createLevel.bind(adminController)
+  );
+  router.put('/levels/:levelId', adminController.updateLevel.bind(adminController));
+  router.delete('/levels/:levelId', adminController.deleteLevel.bind(adminController));
 
   return router;
 };

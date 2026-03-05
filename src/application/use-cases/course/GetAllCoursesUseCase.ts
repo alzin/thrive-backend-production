@@ -3,15 +3,16 @@ import { CourseRepository } from '../../../infrastructure/database/repositories/
 
 export interface GetAllCoursesRequest {
     userRole?: string;
+    levelId?: string;
 }
 
 export class GetAllCoursesUseCase {
     constructor(private courseRepository: CourseRepository) { }
 
     async execute(request: GetAllCoursesRequest): Promise<any[]> {
-        const { userRole } = request;
+        const { userRole, levelId } = request;
         const getOnlyActive = userRole !== "ADMIN" ? true : undefined;
 
-        return await this.courseRepository.findAllWithLessonCounts(getOnlyActive);
+        return await this.courseRepository.findAllWithLessonCounts(getOnlyActive, levelId);
     }
 }

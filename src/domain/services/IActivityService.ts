@@ -13,7 +13,7 @@ export interface IActivityService {
     logLessonCompleted(userId: string, lessonTitle: string, points: number): Promise<RecentActivity>;
     logPostCreated(userId: string, postId: string): Promise<RecentActivity>;
     logSessionBooked(userId: string, sessionTitle: string, sessionDate: Date): Promise<RecentActivity>;
-    logSessionAttended(userId: string, sessionTitle: string): Promise<RecentActivity>;
+    logSessionAttended(userId: string, sessionTitle: string, sessionType?: string): Promise<RecentActivity>;
     logCourseCompleted(userId: string, courseTitle: string): Promise<RecentActivity>;
     logAchievementEarned(userId: string, achievementTitle: string, achievementId: string): Promise<RecentActivity>;
     logPointsEarned(userId: string, points: number, reason: string): Promise<RecentActivity>;

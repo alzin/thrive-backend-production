@@ -23,6 +23,7 @@ import { SessionRepository } from "../../database/repositories/SessionRepository
 import { SubscriptionRepository } from "../../database/repositories/SubscriptionRepository";
 import { UserRepository } from "../../database/repositories/UserRepository";
 import { VideoRepository } from "../../database/repositories/VideoRepository";
+import { LevelRepository } from "../../database/repositories/LevelRepository";
 
 // ========== SERVICES (9) ==========
 import { ActivityService } from "../../services/ActivityService";
@@ -75,6 +76,14 @@ import { UnflagPostUseCase } from "../../../application/use-cases/admin/post-man
 import { GetAnalyticsOverviewUseCase } from "../../../application/use-cases/admin/analytics-managment/GetAnalyticsOverviewUseCase";
 import { GetRevenueAnalyticsUseCase } from "../../../application/use-cases/admin/analytics-managment/GetRevenueAnalyticsUseCase";
 import { GetEngagementAnalyticsUseCase } from "../../../application/use-cases/admin/analytics-managment/GetEngagementAnalyticsUseCase";
+
+// Admin Use Cases - Level Management
+import { CreateLevelUseCase } from "../../../application/use-cases/admin/level-management/CreateLevelUseCase";
+import { UpdateLevelUseCase } from "../../../application/use-cases/admin/level-management/UpdateLevelUseCase";
+import { DeleteLevelUseCase } from "../../../application/use-cases/admin/level-management/DeleteLevelUseCase";
+
+// Level Use Cases
+import { GetAllLevelsUseCase } from "../../../application/use-cases/level/GetAllLevelsUseCase";
 
 
 // Announcement Use Cases
@@ -228,6 +237,7 @@ import { SessionController } from "../controllers/session.controller";
 import { SubscriptionController } from "../controllers/subscription.controller";
 import { UserController } from "../controllers/user.controller";
 import { VideoController } from "../controllers/video.controller";
+import { LevelController } from "../controllers/level.controller";
 
 // Dependency Container Interface
 export interface DependencyContainer {
@@ -252,6 +262,7 @@ export interface DependencyContainer {
         subscription: SubscriptionRepository;
         user: UserRepository;
         video: VideoRepository;
+        level: LevelRepository;
     };
 
     // Services
@@ -284,6 +295,12 @@ export interface DependencyContainer {
         createCourse: CreateCourseUseCase;
         updateCourse: UpdateCourseUseCase;
         deleteCourse: DeleteCourseUseCase;
+
+        // Admin - Level Management
+        createLevel: CreateLevelUseCase;
+        updateLevel: UpdateLevelUseCase;
+        deleteLevel: DeleteLevelUseCase;
+        getAllLevels: GetAllLevelsUseCase;
 
         // Admin - Lesson Management
         createLesson: CreateLessonUseCase;
@@ -464,6 +481,7 @@ export interface DependencyContainer {
         subscription: SubscriptionController;
         user: UserController;
         video: VideoController;
+        level: LevelController;
     };
 }
 
@@ -497,6 +515,7 @@ export const setupDependencies = (): DependencyContainer => {
         subscription: new SubscriptionRepository(),
         user: new UserRepository(),
         video: new VideoRepository(),
+        level: new LevelRepository(),
     };
 
     // ========== Initialize Services ==========
@@ -557,6 +576,20 @@ export const setupDependencies = (): DependencyContainer => {
         ),
         deleteCourse: new DeleteCourseUseCase(
             repositories.course
+        ),
+
+        // Admin - Level Management
+        createLevel: new CreateLevelUseCase(
+            repositories.level
+        ),
+        updateLevel: new UpdateLevelUseCase(
+            repositories.level
+        ),
+        deleteLevel: new DeleteLevelUseCase(
+            repositories.level
+        ),
+        getAllLevels: new GetAllLevelsUseCase(
+            repositories.level
         ),
 
         // Admin - Lesson Management
@@ -1126,7 +1159,12 @@ export const setupDependencies = (): DependencyContainer => {
             useCases.getRevenueAnalytics,
             useCases.getEngagementAnalytics,
             // Community
-            useCases.createPost
+            useCases.createPost,
+            // Level Management
+            useCases.createLevel,
+            useCases.updateLevel,
+            useCases.deleteLevel,
+            useCases.getAllLevels
         ),
         announcement: new AnnouncementController(
             useCases.createAnnouncement,
@@ -1267,6 +1305,9 @@ export const setupDependencies = (): DependencyContainer => {
             useCases.deleteVideo,
             useCases.checkTourVideoStatus,
             useCases.markTourVideoViewed,
+        ),
+        level: new LevelController(
+            useCases.getAllLevels
         ),
     };
 

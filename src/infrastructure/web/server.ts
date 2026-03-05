@@ -23,6 +23,7 @@ import feedbackRouter from './routes/feedback.routes';
 import activityRouter from './routes/activity.routes';
 import announcementRouter from './routes/announcement.routes';
 import videoRouter from './routes/video.routes';
+import levelRouter from './routes/level.routes';
 
 
 import { setupDependencies, DependencyContainer } from './dependencies';
@@ -95,6 +96,7 @@ export class Server {
     this.app.use('/api/activities', activityRouter(this.dependencies.controllers.activity));
     this.app.use('/api/announcements', announcementRouter(this.dependencies.controllers.announcement));
     this.app.use('/api/videos', videoRouter(this.dependencies.controllers.video));
+    this.app.use('/api/levels', levelRouter(this.dependencies.controllers.level));
     this.app.use('/api/feedback', feedbackRouter(this.dependencies.controllers.feedback));
     this.app.use('/api/public/profile', publicProfileRouter(this.dependencies.controllers.publicProfile));
 

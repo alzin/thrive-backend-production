@@ -1,7 +1,8 @@
 // backend/src/infrastructure/database/entities/Course.entity.ts
-import { Entity, PrimaryColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany } from 'typeorm';
+import { Entity, PrimaryColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany, ManyToOne, JoinColumn } from 'typeorm';
 import { CourseType } from '../../../domain/entities/Course';
 import { LessonEntity } from './Lesson.entity';
+import { LevelEntity } from './Level.entity';
 
 @Entity('courses')
 export class CourseEntity {
@@ -31,6 +32,13 @@ export class CourseEntity {
 
   @Column({ default: 1 }) // NEW FIELD with default order
   order!: number;
+
+  @Column({ nullable: true })
+  levelId!: string | null;
+
+  @ManyToOne(() => LevelEntity, level => level.courses, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'levelId' })
+  level!: LevelEntity | null;
 
   @OneToMany(() => LessonEntity, lesson => lesson.course)
   lessons!: LessonEntity[];
