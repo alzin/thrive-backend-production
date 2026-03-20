@@ -5,4 +5,12 @@ export interface IEmailService {
   sendBookingConfirmation(email: string, sessionDetails: any): Promise<void>;
   sendSessionReminder(email: string, sessionDetails: any): Promise<void>;
   sendVerificationCode(email: string, code: string): Promise<void>; // Also add this if not already present
+  sendTrialAlternativeTimeRequest(
+    studentEmail: string,
+    studentName: string,
+    preferredTimes: string[],
+    timeZone: string,
+    recipientEmail: string,
+    submittedAt: Date
+  ): Promise<void>;
 }

@@ -20,7 +20,8 @@ const communityRouter = (communityController: CommunityController): Router => {
       // Allowed file types
       const allowedImageTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
       const allowedVideoTypes = ['video/mp4', 'video/mpeg', 'video/quicktime', 'video/webm', 'video/x-msvideo'];
-      const allowedTypes = [...allowedImageTypes, ...allowedVideoTypes];
+      const allowedAudioTypes = ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/webm', 'audio/mp4', 'audio/x-m4a'];
+      const allowedTypes = [...allowedImageTypes, ...allowedVideoTypes, ...allowedAudioTypes];
 
       if (allowedTypes.includes(file.mimetype)) {
         cb(null, true);

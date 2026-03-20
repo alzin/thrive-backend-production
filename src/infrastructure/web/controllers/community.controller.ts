@@ -52,9 +52,13 @@ export class CommunityController {
 
       const files = req.files as Express.Multer.File[];
       const userId = req.user!.userId;
+      const targetFolder = typeof req.body.targetFolder === 'string' ? req.body.targetFolder : undefined;
+      const customFileName = typeof req.body.customFileName === 'string' ? req.body.customFileName : undefined;
 
       const result = await this.uploadMediaUseCase.execute({
         userId,
+        targetFolder,
+        customFileName,
         files: files.map(file => ({
           buffer: file.buffer,
           filename: file.originalname,

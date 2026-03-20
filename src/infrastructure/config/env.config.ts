@@ -52,5 +52,6 @@ export const ENV_CONFIG = {
     BREVO_MARKETING_LIST_ID: parseInt(process.env.BREVO_MARKETING_LIST_ID || '3'),
 
     FREE_TRIAL_DAYS: parseInt(process.env.FREE_TRIAL_DAYS!) || 14,
+    TRIAL_BOOKING_REQUEST_EMAIL: process.env.TRIAL_BOOKING_REQUEST_EMAIL || 'info@thriveinjapan.com',
 
 };

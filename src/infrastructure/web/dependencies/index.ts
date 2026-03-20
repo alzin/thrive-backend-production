@@ -21,6 +21,7 @@ import { ProgressRepository } from "../../database/repositories/ProgressReposito
 import { RecentActivityRepository } from "../../database/repositories/RecentActivityRepository";
 import { SessionRepository } from "../../database/repositories/SessionRepository";
 import { SubscriptionRepository } from "../../database/repositories/SubscriptionRepository";
+import { TrialAlternativeTimeRequestRepository } from "../../database/repositories/TrialAlternativeTimeRequestRepository";
 import { UserRepository } from "../../database/repositories/UserRepository";
 import { VideoRepository } from "../../database/repositories/VideoRepository";
 import { LevelRepository } from "../../database/repositories/LevelRepository";
@@ -210,6 +211,7 @@ import { UnblockUserUseCase } from "../../../application/use-cases/user/UnblockU
 // Subscription Use Cases
 import { CheckUserSubscriptionUseCase } from "../../../application/use-cases/subscription/CheckUserSubscriptionUseCase";
 import { HandleSubscriptionWebhookUseCase } from "../../../application/use-cases/subscription/HandleSubscriptionWebhookUseCase";
+import { SubmitTrialAlternativeTimeRequestUseCase } from "../../../application/use-cases/subscription/SubmitTrialAlternativeTimeRequestUseCase";
 
 // Video Use Cases
 import { CheckTourVideoStatusUseCase } from "../../../application/use-cases/video/CheckTourVideoStatusUseCase";
@@ -260,6 +262,7 @@ export interface DependencyContainer {
         recentActivity: RecentActivityRepository;
         session: SessionRepository;
         subscription: SubscriptionRepository;
+        trialAlternativeTimeRequest: TrialAlternativeTimeRequestRepository;
         user: UserRepository;
         video: VideoRepository;
         level: LevelRepository;
@@ -446,6 +449,7 @@ export interface DependencyContainer {
         // Subscription
         checkUserSubscription: CheckUserSubscriptionUseCase;
         handleSubscriptionWebhook: HandleSubscriptionWebhookUseCase;
+        submitTrialAlternativeTimeRequest: SubmitTrialAlternativeTimeRequestUseCase;
 
         // User
         userGetUserProfile: UserGetUserProfileUseCase;
@@ -513,6 +517,7 @@ export const setupDependencies = (): DependencyContainer => {
         recentActivity: new RecentActivityRepository(),
         session: new SessionRepository(),
         subscription: new SubscriptionRepository(),
+        trialAlternativeTimeRequest: new TrialAlternativeTimeRequestRepository(),
         user: new UserRepository(),
         video: new VideoRepository(),
         level: new LevelRepository(),
@@ -1084,12 +1089,20 @@ export const setupDependencies = (): DependencyContainer => {
         // Subscription Use Cases
         checkUserSubscription: new CheckUserSubscriptionUseCase(
             repositories.subscription,
-            repositories.user
+            repositories.user,
+            repositories.booking,
+            repositories.trialAlternativeTimeRequest
         ),
         handleSubscriptionWebhook: new HandleSubscriptionWebhookUseCase(
             repositories.subscription,
             repositories.user,
             services.payment
+        ),
+        submitTrialAlternativeTimeRequest: new SubmitTrialAlternativeTimeRequestUseCase(
+            repositories.user,
+            repositories.profile,
+            services.email,
+            repositories.trialAlternativeTimeRequest
         ),
 
         // User Use Cases
@@ -1291,7 +1304,8 @@ export const setupDependencies = (): DependencyContainer => {
             useCases.getAllSessions
         ),
         subscription: new SubscriptionController(
-            useCases.checkUserSubscription
+            useCases.checkUserSubscription,
+            useCases.submitTrialAlternativeTimeRequest
         ),
         user: new UserController(
             useCases.userGetUserProfile,
