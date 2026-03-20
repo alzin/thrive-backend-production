@@ -156,4 +156,79 @@ export class EmailService implements IEmailService {
 
     await this.transporter.sendMail(mailOptions);
   }
+
+  async sendTrialAlternativeTimeRequest(
+    studentEmail: string,
+    studentName: string,
+    preferredTimes: string[],
+    timeZone: string,
+    recipientEmail: string,
+    submittedAt: Date
+  ): Promise<void> {
+    const preferredTimesHtml = preferredTimes
+      .map((time, index) => {
+        const date = new Date(time);
+        const localTime = new Intl.DateTimeFormat('en-US', {
+          timeZone,
+          weekday: 'short',
+          year: 'numeric',
+          month: 'short',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: true,
+        }).format(date);
+
+        return `
+          <tr>
+            <td style="padding: 10px; border-bottom: 1px solid #eee; font-weight: 600;">${index + 1}</td>
+            <td style="padding: 10px; border-bottom: 1px solid #eee;">${localTime}</td>
+          </tr>
+        `;
+      })
+      .join('');
+
+    const mailOptions = {
+      from: `"Thrive in Japan" <${ENV_CONFIG.EMAIL_USER}>`,
+      to: recipientEmail,
+      replyTo: studentEmail,
+      subject: 'Trial Student Alternative Speaking Time Request',
+      html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #5C633A; margin-bottom: 6px;">Trial Student Alternative Speaking Time Request</h2>
+        <p style="margin-top: 0; color: #666;">A trial student could not find a suitable slot in the current schedule.</p>
+
+        <table style="width: 100%; border-collapse: collapse; margin-top: 16px;">
+          <tr>
+            <td style="padding: 8px 0;"><strong>Student name:</strong></td>
+            <td style="padding: 8px 0;">${studentName}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0;"><strong>Student email:</strong></td>
+            <td style="padding: 8px 0;">${studentEmail}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0;"><strong>Submitted at:</strong></td>
+            <td style="padding: 8px 0;">${new Intl.DateTimeFormat('en-US', { year: 'numeric', month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: true }).format(submittedAt)}</td>
+          </tr>
+        </table>
+
+        <h3 style="margin-top: 24px; color: #2D3436;">Preferred Times</h3>
+        <table style="width: 100%; border-collapse: collapse; background: #f9f9f9; border-radius: 8px; overflow: hidden;">
+          <thead>
+            <tr style="background: #ecefdf; text-align: left;">
+              <th style="padding: 10px;">#</th>
+              <th style="padding: 10px;">Preferred Time</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${preferredTimesHtml}
+          </tbody>
+        </table>
+      </div>
+      `,
+    };
+
+    await this.transporter.sendMail(mailOptions);
+  }
 }

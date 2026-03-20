@@ -2,6 +2,8 @@ import { S3StorageService } from '../../../infrastructure/services/S3StorageServ
 
 export interface UploadMediaRequest {
     userId: string;
+    targetFolder?: string;
+    customFileName?: string;
     files: Array<{
         buffer: Buffer;
         filename: string;
@@ -21,7 +23,7 @@ export class UploadMediaUseCase {
     constructor(private storageService: S3StorageService) { }
 
     async execute(request: UploadMediaRequest): Promise<UploadMediaResponse> {
-        const { userId, files } = request;
+        const { userId, files, targetFolder, customFileName } = request;
 
         // Validate files
         for (const file of files) {
@@ -34,7 +36,9 @@ export class UploadMediaUseCase {
 
         const uploadedFiles = await this.storageService.uploadMultipleCommunityMedia(
             userId,
-            files
+            files,
+            targetFolder,
+            customFileName
         );
 
         return {

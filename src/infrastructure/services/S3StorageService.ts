@@ -99,6 +99,48 @@ export class S3StorageService {
     }
 
     /**
+     * Preserve user folder naming (including spaces/unicode) while blocking path traversal.
+     */
+    private sanitizeFolderPath(folderPath?: string): string {
+        if (!folderPath) {
+            return '';
+        }
+
+        const normalized = folderPath.replace(/\\/g, '/');
+        const safePath = normalized
+            .split('/')
+            .map(segment => segment.trim())
+            .filter(segment => segment && segment !== '.' && segment !== '..')
+            .join('/');
+
+        return safePath;
+    }
+
+    /**
+     * Preserve user filename (including spaces/unicode) and keep stable keys without random suffixes.
+     */
+    private buildCustomFilename(baseName: string, originalName: string): string {
+        const originalExt = path.extname(originalName).toLowerCase() || '.bin';
+        const cleanedBase = baseName
+            .trim()
+            .replace(/[\\/]/g, ' ')
+            .replace(/[\x00-\x1f\x7f]/g, '')
+            .replace(/\s{2,}/g, ' ')
+            .replace(/^\.+|\.+$/g, '')
+            .substring(0, 180);
+
+        if (!cleanedBase) {
+            return this.sanitizeFilename(originalName);
+        }
+
+        if (path.extname(cleanedBase)) {
+            return cleanedBase;
+        }
+
+        return `${cleanedBase}${originalExt}`;
+    }
+
+    /**
      * Generate unique profile photo filename
      */
     private generateProfilePhotoFilename(userId: string, mimeType: string): string {
@@ -115,7 +157,8 @@ export class S3StorageService {
     static validateCommunityMediaFile(file: Express.Multer.File): void {
         const allowedImageTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
         const allowedVideoTypes = ['video/mp4', 'video/mpeg', 'video/quicktime', 'video/webm', 'video/x-msvideo'];
-        const allowedTypes = [...allowedImageTypes, ...allowedVideoTypes];
+        const allowedAudioTypes = ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/webm', 'audio/mp4', 'audio/x-m4a'];
+        const allowedTypes = [...allowedImageTypes, ...allowedVideoTypes, ...allowedAudioTypes];
 
         if (!allowedTypes.includes(file.mimetype)) {
             throw new Error(`Invalid file type: ${file.mimetype}. Allowed types: ${allowedTypes.join(', ')}`);
@@ -123,10 +166,19 @@ export class S3StorageService {
 
         const maxImageSize = 10 * 1024 * 1024; // 10MB
         const maxVideoSize = 100 * 1024 * 1024; // 100MB
-        const maxSize = file.mimetype.startsWith('image/') ? maxImageSize : maxVideoSize;
+        const maxAudioSize = 20 * 1024 * 1024; // 20MB
+        const maxSize = file.mimetype.startsWith('image/')
+            ? maxImageSize
+            : file.mimetype.startsWith('audio/')
+                ? maxAudioSize
+                : maxVideoSize;
 
         if (file.size > maxSize) {
-            const maxSizeLabel = file.mimetype.startsWith('image/') ? '10MB' : '100MB';
+            const maxSizeLabel = file.mimetype.startsWith('image/')
+                ? '10MB'
+                : file.mimetype.startsWith('audio/')
+                    ? '20MB'
+                    : '100MB';
             throw new Error(`File size exceeds ${maxSizeLabel}. Current size: ${(file.size / 1024 / 1024).toFixed(2)}MB`);
         }
     }
@@ -252,7 +304,9 @@ export class S3StorageService {
      */
     async uploadCommunityMedia(
         userId: string,
-        fileData: { buffer: Buffer; filename: string; mimeType: string }
+        fileData: { buffer: Buffer; filename: string; mimeType: string },
+        targetFolder?: string,
+        customFileName?: string
     ): Promise<{ url: string; size: number; mimeType: string }> {
         try {
 
@@ -270,10 +324,16 @@ export class S3StorageService {
             }
 
             // Generate safe filename
-            const safeFilename = this.generateUniqueFilename(fileData.filename, userId);
+            const safeFilename = customFileName
+                ? this.buildCustomFilename(customFileName, fileData.filename)
+                : this.generateUniqueFilename(fileData.filename, userId);
 
-            // Create S3 key with folder structure
-            const key = `community/${userId}/${safeFilename}`;
+            const safeFolderPath = this.sanitizeFolderPath(targetFolder);
+
+            // For explicit folder uploads (lesson audio), use exact folder path without community/userId prefixes.
+            const key = safeFolderPath
+                ? `${safeFolderPath}/${safeFilename}`
+                : `community/${userId}/${safeFilename}`;
 
             // Prepare upload parameters
             const uploadParams: AWS.S3.PutObjectRequest = {
@@ -335,7 +395,9 @@ export class S3StorageService {
      */
     async uploadMultipleCommunityMedia(
         userId: string,
-        filesData: Array<{ buffer: Buffer; filename: string; mimeType: string }>
+        filesData: Array<{ buffer: Buffer; filename: string; mimeType: string }>,
+        targetFolder?: string,
+        customFileName?: string
     ): Promise<Array<{ url: string; size: number; mimeType: string }>> {
         try {
 
@@ -349,7 +411,7 @@ export class S3StorageService {
             }
 
             const uploadPromises = filesData.map((fileData, index) => {
-                return this.uploadCommunityMedia(userId, fileData);
+                return this.uploadCommunityMedia(userId, fileData, targetFolder, customFileName);
             });
 
             const results = await Promise.all(uploadPromises);

@@ -1,6 +1,8 @@
 // backend/src/application/use-cases/subscription/CheckUserSubscriptionUseCase.ts
 import { ISubscriptionRepository } from '../../../domain/repositories/ISubscriptionRepository';
 import { IUserRepository } from '../../../domain/repositories/IUserRepository';
+import { IBookingRepository } from '../../../domain/repositories/IBookingRepository';
+import { ITrialAlternativeTimeRequestRepository } from '../../../domain/repositories/ITrialAlternativeTimeRequestRepository';
 
 export interface CheckUserSubscriptionDTO {
     userId: string;
@@ -17,6 +19,9 @@ export interface SubscriptionStatusResponse {
     freeTrialExpired: boolean;
     freeTrialEndDate: Date | null;
     trialConvertedToPaid: boolean;
+    hasBookedTrialSession: boolean;
+    hasSubmittedAlternativeTime: boolean;
+    trialBookingRequirementCompleted: boolean;
     subscription: {
         id: string;
         plan: string;
@@ -28,7 +33,9 @@ export interface SubscriptionStatusResponse {
 export class CheckUserSubscriptionUseCase {
     constructor(
         private subscriptionRepository: ISubscriptionRepository,
-        private userRepository: IUserRepository
+        private userRepository: IUserRepository,
+        private bookingRepository: IBookingRepository,
+        private trialAlternativeTimeRequestRepository: ITrialAlternativeTimeRequestRepository
     ) { }
 
     async execute(dto: CheckUserSubscriptionDTO): Promise<SubscriptionStatusResponse> {
@@ -39,6 +46,10 @@ export class CheckUserSubscriptionUseCase {
 
         const subscription = await this.subscriptionRepository.findByUserId(dto.userId);
         const activeSubscription = await this.subscriptionRepository.findActiveByUserId(dto.userId);
+        const allBookings = await this.bookingRepository.findByUserId(dto.userId);
+        const latestAlternativeTimeRequest = await this.trialAlternativeTimeRequestRepository.findLatestByUserId(dto.userId);
+        const hasBookedTrialSession = allBookings.some((booking) => booking.status !== 'CANCELLED');
+        const hasSubmittedAlternativeTime = Boolean(latestAlternativeTimeRequest);
 
         // Check free trial status (no credit card required trial)
         const now = new Date();
@@ -63,6 +74,9 @@ export class CheckUserSubscriptionUseCase {
                 freeTrialExpired: false,
                 freeTrialEndDate: null,
                 trialConvertedToPaid: user.trialConvertedToPaid,
+                hasBookedTrialSession: true,
+                hasSubmittedAlternativeTime: true,
+                trialBookingRequirementCompleted: true,
                 subscription: null,
             };
         }
@@ -91,6 +105,7 @@ export class CheckUserSubscriptionUseCase {
         const currentPlan = subscription ? subscription.subscriptionPlan : null;
         // isTrialing is true for subscription-based trial OR free trial (no credit card)
         const isTrialing = (subscription?.status === 'trialing' && isSubscriptionValid) || isInFreeTrial;
+        const trialBookingRequirementCompleted = !isTrialing || hasBookedTrialSession || hasSubmittedAlternativeTime;
 
         return {
             hasSubscription,
@@ -102,6 +117,9 @@ export class CheckUserSubscriptionUseCase {
             freeTrialExpired,
             freeTrialEndDate: user.trialEndDate,
             trialConvertedToPaid: user.trialConvertedToPaid,
+            hasBookedTrialSession,
+            hasSubmittedAlternativeTime,
+            trialBookingRequirementCompleted,
             subscription: subscription
                 ? {
                     id: subscription.id,
